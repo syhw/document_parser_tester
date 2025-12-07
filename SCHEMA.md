@@ -1,12 +1,14 @@
-# Document Structure Schema
+# Document Structure Schema (Full)
 
 ## Overview
 
-This document defines the canonical schema for representing parsed document structures. This schema serves as the common format for both:
+This document defines the **complete** schema for representing parsed document structures. This schema serves as the common format for both:
 1. **Tool-based parsing** (traditional extraction using libraries like pdfplumber, BeautifulSoup, etc.)
 2. **VLM-based parsing** (extraction via Vision Language Models analyzing rendered documents)
 
 The equivalence testing framework compares outputs from both approaches using this shared schema.
+
+> **Note**: For simpler use cases and faster iteration, see [SCHEMA_SIMPLE.md](./SCHEMA_SIMPLE.md) which defines a minimal schema that is a strict subset of this full schema.
 
 ## Design Principles
 
@@ -23,160 +25,172 @@ The equivalence testing framework compares outputs from both approaches using th
 
 All spatial coordinates use a consistent coordinate system per page/screen:
 
-```typescript
-interface BoundingBox {
-  // Page or screen number (1-indexed)
-  page: number;
+```python
+from pydantic import BaseModel, Field
+from typing import Optional
 
-  // Coordinates in pixels or PDF points (72 DPI)
-  // Origin is top-left corner
-  x: number;      // Left edge
-  y: number;      // Top edge
-  width: number;  // Width of box
-  height: number; // Height of box
+class BoundingBox(BaseModel):
+    """Bounding box coordinates for visual elements."""
+    # Page or screen number (1-indexed)
+    page: int
 
-  // Optional: confidence score from extraction tool
-  confidence?: number; // 0.0 - 1.0
-}
+    # Coordinates in pixels or PDF points (72 DPI)
+    # Origin is top-left corner
+    x: float  # Left edge
+    y: float  # Top edge
+    width: float  # Width of box
+    height: float  # Height of box
 
-// Alternative representation for compatibility
-interface BoundingBoxAlt {
-  page: number;
-  x1: number; // Left
-  y1: number; // Top
-  x2: number; // Right
-  y2: number; // Bottom
-}
+    # Optional: confidence score from extraction tool
+    confidence: Optional[float] = Field(None, ge=0.0, le=1.0)
+
+
+class BoundingBoxAlt(BaseModel):
+    """Alternative bounding box representation for compatibility."""
+    page: int
+    x1: float  # Left
+    y1: float  # Top
+    x2: float  # Right
+    y2: float  # Bottom
 ```
 
 ### Document Root
 
 Top-level container for all document content:
 
-```typescript
-interface Document {
-  // Document metadata
-  id: string;
-  format: DocumentFormat;
-  category?: DocumentCategory;
-  source: DocumentSource;
-  metadata: DocumentMetadata;
+```python
+from enum import Enum
+from typing import Optional, List
+from datetime import datetime
 
-  // Structural content
-  content: ContentElement[];
+class DocumentFormat(str, Enum):
+    """Document format: the file format/extension/representation."""
+    HTML = "html"
+    PDF = "pdf"
+    PNG = "png"
+    JPG = "jpg"
+    SVG = "svg"
+    MARKDOWN = "markdown"
+    LATEX = "latex"
+    DOCX = "docx"
+    PPTX = "pptx"
+    JUPYTER = "jupyter"
+    OTHER = "other"
 
-  // Extracted visual elements
-  figures: Figure[];
-  tables: Table[];
 
-  // References and relationships
-  links: Link[];
-  citations: Citation[];
-  relationships: Relationship[];
+class DocumentCategory(str, Enum):
+    """Document category: the semantic type/purpose of the document."""
+    ACADEMIC_PAPER = "academic_paper"
+    BLOG_POST = "blog_post"
+    NEWS_ARTICLE = "news_article"
+    TECHNICAL_DOCUMENTATION = "technical_documentation"
+    BOOK_CHAPTER = "book_chapter"
+    PRESENTATION = "presentation"
+    REPORT = "report"
+    TUTORIAL = "tutorial"
+    PLOT_VISUALIZATION = "plot_visualization"
+    INFOGRAPHIC = "infographic"
+    WEBPAGE_GENERAL = "webpage_general"
+    OTHER = "other"
 
-  // Rendering information
-  rendering: RenderingInfo;
 
-  // Extraction metadata
-  extraction: ExtractionMetadata;
-}
+class DocumentSource(BaseModel):
+    """Source information for the document."""
+    # Original source
+    url: Optional[str] = None
+    file_path: Optional[str] = None
 
-// Document format: the file format/extension/representation
-enum DocumentFormat {
-  HTML = "html",
-  PDF = "pdf",
-  PNG = "png",
-  JPG = "jpg",
-  SVG = "svg",
-  MARKDOWN = "markdown",
-  LATEX = "latex",
-  DOCX = "docx",
-  PPTX = "pptx",
-  JUPYTER = "jupyter",
-  OTHER = "other"
-}
+    # Content hash for versioning
+    content_hash: Optional[str] = None
 
-// Document category: the semantic type/purpose of the document
-enum DocumentCategory {
-  ACADEMIC_PAPER = "academic_paper",
-  BLOG_POST = "blog_post",
-  NEWS_ARTICLE = "news_article",
-  TECHNICAL_DOCUMENTATION = "technical_documentation",
-  BOOK_CHAPTER = "book_chapter",
-  PRESENTATION = "presentation",
-  REPORT = "report",
-  TUTORIAL = "tutorial",
-  PLOT_VISUALIZATION = "plot_visualization",
-  INFOGRAPHIC = "infographic",
-  WEBPAGE_GENERAL = "webpage_general",
-  OTHER = "other"
-}
+    # Timestamp
+    accessed_at: datetime
 
-interface DocumentSource {
-  // Original source
-  url?: string;
-  file_path?: string;
 
-  // Content hash for versioning
-  content_hash?: string;
+class Document(BaseModel):
+    """Top-level container for all document content."""
+    # Document metadata
+    id: str
+    format: DocumentFormat
+    category: Optional[DocumentCategory] = None
+    source: DocumentSource
+    metadata: "DocumentMetadata"
 
-  // Timestamp
-  accessed_at: string; // ISO 8601
-}
+    # Structural content
+    content: List["ContentElement"] = Field(default_factory=list)
+
+    # Extracted visual elements
+    figures: List["Figure"] = Field(default_factory=list)
+    tables: List["Table"] = Field(default_factory=list)
+
+    # References and relationships
+    links: List["Link"] = Field(default_factory=list)
+    citations: List["Citation"] = Field(default_factory=list)
+    relationships: List["Relationship"] = Field(default_factory=list)
+
+    # Rendering information
+    rendering: Optional["RenderingInfo"] = None
+
+    # Extraction metadata
+    extraction: Optional["ExtractionMetadata"] = None
 ```
 
 ### Document Metadata
 
 Structured metadata following Schema.org and JATS standards:
 
-```typescript
-interface DocumentMetadata {
-  // Core metadata
-  title?: string;
-  subtitle?: string;
+```python
+from typing import Dict, Any
 
-  // Authorship
-  authors?: Author[];
+class Author(BaseModel):
+    """Author information."""
+    name: str
+    given_name: Optional[str] = None
+    family_name: Optional[str] = None
+    affiliation: List[str] = Field(default_factory=list)
+    orcid: Optional[str] = None
+    email: Optional[str] = None
 
-  // Publishing information
-  published_date?: string; // ISO 8601
-  modified_date?: string;  // ISO 8601
-  publisher?: Organization;
 
-  // Identifiers
-  doi?: string;
-  isbn?: string;
-  issn?: string;
-  arxiv_id?: string;
-  pmid?: string;
-  url?: string;
+class Organization(BaseModel):
+    """Organization information."""
+    name: str
+    url: Optional[str] = None
+    address: Optional[str] = None
 
-  // Classification
-  keywords?: string[];
-  subjects?: string[];
-  language?: string; // ISO 639-1 code
 
-  // Abstract/summary
-  abstract?: string;
+class DocumentMetadata(BaseModel):
+    """Structured metadata following Schema.org and JATS standards."""
+    # Core metadata
+    title: Optional[str] = None
+    subtitle: Optional[str] = None
 
-  // Custom metadata
-  custom?: Record<string, any>;
-}
+    # Authorship
+    authors: List[Author] = Field(default_factory=list)
 
-interface Author {
-  name: string;
-  given_name?: string;
-  family_name?: string;
-  affiliation?: string[];
-  orcid?: string;
-  email?: string;
-}
+    # Publishing information
+    published_date: Optional[datetime] = None
+    modified_date: Optional[datetime] = None
+    publisher: Optional[Organization] = None
 
-interface Organization {
-  name: string;
-  url?: string;
-  address?: string;
-}
+    # Identifiers
+    doi: Optional[str] = None
+    isbn: Optional[str] = None
+    issn: Optional[str] = None
+    arxiv_id: Optional[str] = None
+    pmid: Optional[str] = None
+    url: Optional[str] = None
+
+    # Classification
+    keywords: List[str] = Field(default_factory=list)
+    subjects: List[str] = Field(default_factory=list)
+    language: Optional[str] = None  # ISO 639-1 code
+
+    # Abstract/summary
+    abstract: Optional[str] = None
+
+    # Custom metadata
+    custom: Dict[str, Any] = Field(default_factory=dict)
 ```
 
 ## Content Structure
@@ -185,474 +199,501 @@ interface Organization {
 
 Hierarchical content representation:
 
-```typescript
-interface ContentElement {
-  // Unique identifier within document
-  id: string;
+```python
+from typing import Union, Literal
 
-  // Element type
-  type: ContentType;
+class ContentType(str, Enum):
+    """Type of content element."""
+    # Text blocks
+    HEADING = "heading"
+    PARAGRAPH = "paragraph"
+    LIST_ITEM = "list_item"
+    BLOCKQUOTE = "blockquote"
+    CODE_BLOCK = "code_block"
 
-  // Hierarchical structure
-  level?: number; // Heading level, list depth, etc.
-  parent_id?: string;
-  children_ids?: string[];
+    # Inline elements
+    TEXT = "text"
+    EMPHASIS = "emphasis"
+    STRONG = "strong"
+    CODE = "code"
 
-  // Content
-  content: string | RichText;
+    # Structural
+    SECTION = "section"
+    ARTICLE = "article"
+    ASIDE = "aside"
+    HEADER = "header"
+    FOOTER = "footer"
+    NAV = "nav"
 
-  // Spatial information
-  bbox?: BoundingBox;
+    # Other
+    CAPTION = "caption"
+    LABEL = "label"
+    METADATA = "metadata"
 
-  // Styling and attributes
-  attributes?: ContentAttributes;
 
-  // Order in document
-  sequence?: number;
-}
+class TextStyle(BaseModel):
+    """Styling information for text spans."""
+    bold: bool = False
+    italic: bool = False
+    underline: bool = False
+    strikethrough: bool = False
+    font_size: Optional[float] = None
+    font_family: Optional[str] = None
+    color: Optional[str] = None
 
-enum ContentType {
-  // Text blocks
-  HEADING = "heading",
-  PARAGRAPH = "paragraph",
-  LIST_ITEM = "list_item",
-  BLOCKQUOTE = "blockquote",
-  CODE_BLOCK = "code_block",
 
-  // Inline elements
-  TEXT = "text",
-  EMPHASIS = "emphasis",
-  STRONG = "strong",
-  CODE = "code",
+class TextSpan(BaseModel):
+    """Styled text span within rich text."""
+    text: str
+    start: int  # Character offset
+    end: int
+    style: Optional[TextStyle] = None
+    link: Optional[str] = None
 
-  // Structural
-  SECTION = "section",
-  ARTICLE = "article",
-  ASIDE = "aside",
-  HEADER = "header",
-  FOOTER = "footer",
-  NAV = "nav",
 
-  // Other
-  CAPTION = "caption",
-  LABEL = "label",
-  METADATA = "metadata"
-}
+class RichText(BaseModel):
+    """Rich text with formatting information."""
+    # Plain text version
+    plain: str
 
-interface RichText {
-  // Plain text version
-  plain: string;
+    # Formatted version (HTML, Markdown, etc.)
+    formatted: Optional[str] = None
+    format: Optional[Literal["html", "markdown", "latex"]] = None
 
-  // Formatted version (HTML, Markdown, etc.)
-  formatted?: string;
-  format?: "html" | "markdown" | "latex";
+    # Inline elements
+    spans: List[TextSpan] = Field(default_factory=list)
 
-  // Inline elements
-  spans?: TextSpan[];
-}
 
-interface TextSpan {
-  text: string;
-  start: number; // Character offset
-  end: number;
-  style?: TextStyle;
-  link?: string;
-}
+class ContentAttributes(BaseModel):
+    """Attributes for content elements."""
+    # Semantic attributes
+    role: Optional[str] = None
+    lang: Optional[str] = None
 
-interface TextStyle {
-  bold?: boolean;
-  italic?: boolean;
-  underline?: boolean;
-  strikethrough?: boolean;
-  font_size?: number;
-  font_family?: string;
-  color?: string;
-}
+    # Visual attributes
+    alignment: Optional[Literal["left", "center", "right", "justify"]] = None
+    indentation: Optional[int] = None
 
-interface ContentAttributes {
-  // Semantic attributes
-  role?: string;
-  lang?: string;
+    # HTML/CSS classes (for web content)
+    classes: List[str] = Field(default_factory=list)
 
-  // Visual attributes
-  alignment?: "left" | "center" | "right" | "justify";
-  indentation?: number;
+    # Custom attributes
+    custom: Dict[str, Any] = Field(default_factory=dict)
 
-  // HTML/CSS classes (for web content)
-  classes?: string[];
 
-  // Custom attributes
-  custom?: Record<string, any>;
-}
+class ContentElement(BaseModel):
+    """Hierarchical content element."""
+    # Unique identifier within document
+    id: str
+
+    # Element type
+    type: ContentType
+
+    # Hierarchical structure
+    level: Optional[int] = None  # Heading level, list depth, etc.
+    parent_id: Optional[str] = None
+    children_ids: List[str] = Field(default_factory=list)
+
+    # Content (either plain string or rich text)
+    content: Union[str, RichText]
+
+    # Spatial information
+    bbox: Optional[BoundingBox] = None
+
+    # Styling and attributes
+    attributes: Optional[ContentAttributes] = None
+
+    # Order in document
+    sequence: Optional[int] = None
 ```
 
 ## Visual Elements
 
 ### Figures and Images
 
-```typescript
-interface Figure {
-  id: string;
-  type: FigureType;
+```python
+class FigureType(str, Enum):
+    """Type of figure."""
+    PHOTOGRAPH = "photograph"
+    DIAGRAM = "diagram"
+    CHART = "chart"
+    PLOT = "plot"
+    MAP = "map"
+    ILLUSTRATION = "illustration"
+    SCREENSHOT = "screenshot"
+    ICON = "icon"
+    LOGO = "logo"
+    OTHER = "other"
 
-  // Content
-  caption?: string;
-  label?: string; // e.g., "Figure 1", "Fig. 2a"
-  alt_text?: string;
 
-  // Visual properties
-  bbox?: BoundingBox;
-  image_data?: ImageData;
+class ImageData(BaseModel):
+    """Image data for figures."""
+    # Image source
+    url: Optional[str] = None
+    embedded: Optional[str] = None  # Base64 encoded
 
-  // Relationships
-  referenced_by?: string[]; // IDs of content elements that reference this
-  related_to?: string[]; // IDs of related figures
+    # Image properties
+    width: Optional[int] = None
+    height: Optional[int] = None
+    format: Optional[str] = None  # png, jpg, svg, etc.
 
-  // Extraction confidence
-  confidence?: number;
-}
+    # File information
+    file_size: Optional[int] = None
+    checksum: Optional[str] = None
 
-enum FigureType {
-  PHOTOGRAPH = "photograph",
-  DIAGRAM = "diagram",
-  CHART = "chart",
-  PLOT = "plot",
-  MAP = "map",
-  ILLUSTRATION = "illustration",
-  SCREENSHOT = "screenshot",
-  ICON = "icon",
-  LOGO = "logo",
-  OTHER = "other"
-}
 
-interface ImageData {
-  // Image source
-  url?: string;
-  embedded?: string; // Base64 encoded
+class Figure(BaseModel):
+    """Figure or image element."""
+    id: str
+    type: FigureType
 
-  // Image properties
-  width?: number;
-  height?: number;
-  format?: string; // png, jpg, svg, etc.
+    # Content
+    caption: Optional[str] = None
+    label: Optional[str] = None  # e.g., "Figure 1", "Fig. 2a"
+    alt_text: Optional[str] = None
 
-  // File information
-  file_size?: number;
-  checksum?: string;
-}
+    # Visual properties
+    bbox: Optional[BoundingBox] = None
+    image_data: Optional[ImageData] = None
+
+    # Relationships
+    referenced_by: List[str] = Field(default_factory=list)  # IDs of content elements that reference this
+    related_to: List[str] = Field(default_factory=list)  # IDs of related figures
+
+    # Extraction confidence
+    confidence: Optional[float] = Field(None, ge=0.0, le=1.0)
 ```
 
 ### Plots and Visualizations
 
 Extended figure schema for data visualizations:
 
-```typescript
-interface Plot extends Figure {
-  type: FigureType.PLOT | FigureType.CHART;
-  plot_type: PlotType;
+```python
+class PlotType(str, Enum):
+    """Type of plot or chart."""
+    LINE = "line"
+    SCATTER = "scatter"
+    BAR = "bar"
+    HISTOGRAM = "histogram"
+    PIE = "pie"
+    HEATMAP = "heatmap"
+    BOX_PLOT = "box_plot"
+    VIOLIN = "violin"
+    CONTOUR = "contour"
+    SURFACE_3D = "surface_3d"
+    OTHER = "other"
 
-  // Plot components
-  title?: string;
-  axes?: Axis[];
-  legend?: Legend;
-  data_series?: DataSeries[];
 
-  // Visual encoding
-  color_scheme?: string;
+class TickMark(BaseModel):
+    """Tick mark on an axis."""
+    value: Union[float, str]
+    label: Optional[str] = None
+    position: Optional[float] = None
 
-  // Accessibility
-  description?: string;
-  data_table?: Table; // Alternative representation
-}
 
-enum PlotType {
-  LINE = "line",
-  SCATTER = "scatter",
-  BAR = "bar",
-  HISTOGRAM = "histogram",
-  PIE = "pie",
-  HEATMAP = "heatmap",
-  BOX_PLOT = "box_plot",
-  VIOLIN = "violin",
-  CONTOUR = "contour",
-  SURFACE_3D = "surface_3d",
-  OTHER = "other"
-}
+class Axis(BaseModel):
+    """Plot axis information."""
+    name: Optional[str] = None
+    label: Optional[str] = None
+    unit: Optional[str] = None
+    scale: Optional[Literal["linear", "log", "time", "category"]] = None
+    range: Optional[Union[tuple[float, float], List[str]]] = None
+    ticks: List[TickMark] = Field(default_factory=list)
 
-interface Axis {
-  name?: string;
-  label?: string;
-  unit?: string;
-  scale?: "linear" | "log" | "time" | "category";
-  range?: [number, number] | string[];
-  ticks?: TickMark[];
-}
 
-interface TickMark {
-  value: number | string;
-  label?: string;
-  position?: number;
-}
+class LegendItem(BaseModel):
+    """Legend item."""
+    label: str
+    color: Optional[str] = None
+    marker: Optional[str] = None
+    line_style: Optional[str] = None
 
-interface Legend {
-  title?: string;
-  items: LegendItem[];
-  position?: "top" | "bottom" | "left" | "right" | "inside";
-}
 
-interface LegendItem {
-  label: string;
-  color?: string;
-  marker?: string;
-  line_style?: string;
-}
+class Legend(BaseModel):
+    """Plot legend."""
+    title: Optional[str] = None
+    items: List[LegendItem]
+    position: Optional[Literal["top", "bottom", "left", "right", "inside"]] = None
 
-interface DataSeries {
-  name?: string;
-  type?: string; // line, scatter, bar, etc.
 
-  // Visual properties
-  color?: string;
-  marker?: string;
-  line_style?: string;
+class DataPointStats(BaseModel):
+    """Summary statistics for a data series."""
+    count: Optional[int] = None
+    min: Optional[float] = None
+    max: Optional[float] = None
+    mean: Optional[float] = None
+    median: Optional[float] = None
 
-  // Data (if extractable)
-  data_points?: DataPoint[];
 
-  // Summary statistics
-  stats?: {
-    count?: number;
-    min?: number;
-    max?: number;
-    mean?: number;
-    median?: number;
-  };
-}
+class DataPoint(BaseModel):
+    """Data point in a plot."""
+    x: Union[float, str]
+    y: float
+    z: Optional[float] = None  # For 3D plots
+    label: Optional[str] = None
+    error: Optional[Union[float, tuple[float, float]]] = None  # Error bars
 
-interface DataPoint {
-  x: number | string;
-  y: number;
-  z?: number; // For 3D plots
-  label?: string;
-  error?: number | [number, number]; // Error bars
-}
+
+class DataSeries(BaseModel):
+    """Data series in a plot."""
+    name: Optional[str] = None
+    type: Optional[str] = None  # line, scatter, bar, etc.
+
+    # Visual properties
+    color: Optional[str] = None
+    marker: Optional[str] = None
+    line_style: Optional[str] = None
+
+    # Data (if extractable)
+    data_points: List[DataPoint] = Field(default_factory=list)
+
+    # Summary statistics
+    stats: Optional[DataPointStats] = None
+
+
+class Plot(Figure):
+    """Plot or chart visualization (extends Figure)."""
+    type: Literal[FigureType.PLOT, FigureType.CHART]
+    plot_type: PlotType
+
+    # Plot components
+    title: Optional[str] = None
+    axes: List[Axis] = Field(default_factory=list)
+    legend: Optional[Legend] = None
+    data_series: List[DataSeries] = Field(default_factory=list)
+
+    # Visual encoding
+    color_scheme: Optional[str] = None
+
+    # Accessibility
+    description: Optional[str] = None
+    data_table: Optional["Table"] = None  # Alternative representation
 ```
 
 ### Tables
 
-```typescript
-interface Table {
-  id: string;
+```python
+class TableCell(BaseModel):
+    """Cell in a table."""
+    content: Union[str, RichText]
 
-  // Content
-  caption?: string;
-  label?: string; // e.g., "Table 1"
+    # Cell properties
+    colspan: Optional[int] = None
+    rowspan: Optional[int] = None
 
-  // Structure
-  headers?: TableHeader[];
-  rows: TableRow[];
-  footer?: TableRow;
+    # Spatial information
+    bbox: Optional[BoundingBox] = None
 
-  // Layout
-  bbox?: BoundingBox;
-  num_columns: number;
-  num_rows: number;
+    # Semantic information
+    data_type: Optional[Literal["text", "number", "date", "boolean"]] = None
+    alignment: Optional[Literal["left", "center", "right"]] = None
 
-  // Properties
-  has_header_row?: boolean;
-  has_header_column?: boolean;
-  is_numeric?: boolean;
+    # Styling
+    attributes: Optional[ContentAttributes] = None
 
-  // Relationships
-  referenced_by?: string[];
-}
 
-interface TableHeader {
-  cells: TableCell[];
-  level?: number; // For multi-level headers
-}
+class TableRow(BaseModel):
+    """Row in a table."""
+    cells: List[TableCell]
+    row_type: Optional[Literal["header", "data", "footer"]] = None
 
-interface TableRow {
-  cells: TableCell[];
-  row_type?: "header" | "data" | "footer";
-}
 
-interface TableCell {
-  content: string | RichText;
+class TableHeader(BaseModel):
+    """Header row(s) in a table."""
+    cells: List[TableCell]
+    level: Optional[int] = None  # For multi-level headers
 
-  // Cell properties
-  colspan?: number;
-  rowspan?: number;
 
-  // Spatial information
-  bbox?: BoundingBox;
+class Table(BaseModel):
+    """Table element."""
+    id: str
 
-  // Semantic information
-  data_type?: "text" | "number" | "date" | "boolean";
-  alignment?: "left" | "center" | "right";
+    # Content
+    caption: Optional[str] = None
+    label: Optional[str] = None  # e.g., "Table 1"
 
-  // Styling
-  attributes?: ContentAttributes;
-}
+    # Structure
+    headers: List[TableHeader] = Field(default_factory=list)
+    rows: List[TableRow]
+    footer: Optional[TableRow] = None
+
+    # Layout
+    bbox: Optional[BoundingBox] = None
+    num_columns: int
+    num_rows: int
+
+    # Properties
+    has_header_row: Optional[bool] = None
+    has_header_column: Optional[bool] = None
+    is_numeric: Optional[bool] = None
+
+    # Relationships
+    referenced_by: List[str] = Field(default_factory=list)
 ```
 
 ## Relationships and References
 
 ### Links
 
-```typescript
-interface Link {
-  id: string;
+```python
+class LinkType(str, Enum):
+    """Type of link."""
+    INTERNAL = "internal"      # Same document
+    EXTERNAL = "external"      # Different domain
+    ANCHOR = "anchor"          # Same page (#fragment)
+    DOWNLOAD = "download"      # File download
+    EMAIL = "email"            # mailto:
+    TELEPHONE = "telephone"    # tel:
 
-  // Link properties
-  source_id?: string; // ID of element containing link
-  anchor_text: string;
-  href: string;
 
-  // Link type
-  type: LinkType;
+class Link(BaseModel):
+    """Link or hyperlink element."""
+    id: str
 
-  // Position
-  bbox?: BoundingBox;
+    # Link properties
+    source_id: Optional[str] = None  # ID of element containing link
+    anchor_text: str
+    href: str
 
-  // Metadata
-  title?: string;
-  rel?: string; // HTML rel attribute
-}
+    # Link type
+    type: LinkType
 
-enum LinkType {
-  INTERNAL = "internal",     // Same document
-  EXTERNAL = "external",     // Different domain
-  ANCHOR = "anchor",         // Same page (#fragment)
-  DOWNLOAD = "download",     // File download
-  EMAIL = "email",          // mailto:
-  TELEPHONE = "telephone"   // tel:
-}
+    # Position
+    bbox: Optional[BoundingBox] = None
+
+    # Metadata
+    title: Optional[str] = None
+    rel: Optional[str] = None  # HTML rel attribute
 ```
 
 ### Citations and References
 
-```typescript
-interface Citation {
-  id: string;
+```python
+class CitationType(str, Enum):
+    """Type of citation."""
+    BIBLIOGRAPHIC = "bibliographic"
+    FIGURE = "figure"
+    TABLE = "table"
+    EQUATION = "equation"
+    SECTION = "section"
+    FOOTNOTE = "footnote"
+    ENDNOTE = "endnote"
 
-  // Citation marker in text
-  marker: string; // e.g., "[1]", "(Smith, 2020)", "¹"
-  marker_bbox?: BoundingBox;
 
-  // Location in document
-  citing_element_id?: string;
+class Citation(BaseModel):
+    """Citation marker in document."""
+    id: str
 
-  // Target reference
-  reference_id?: string;
+    # Citation marker in text
+    marker: str  # e.g., "[1]", "(Smith, 2020)", "¹"
+    marker_bbox: Optional[BoundingBox] = None
 
-  // Citation type
-  type?: CitationType;
-}
+    # Location in document
+    citing_element_id: Optional[str] = None
 
-enum CitationType {
-  BIBLIOGRAPHIC = "bibliographic",
-  FIGURE = "figure",
-  TABLE = "table",
-  EQUATION = "equation",
-  SECTION = "section",
-  FOOTNOTE = "footnote",
-  ENDNOTE = "endnote"
-}
+    # Target reference
+    reference_id: Optional[str] = None
 
-interface Reference {
-  id: string;
+    # Citation type
+    type: Optional[CitationType] = None
 
-  // Bibliographic information
-  type: ReferenceType;
 
-  // Core fields
-  title?: string;
-  authors?: Author[];
-  year?: number;
+class ReferenceType(str, Enum):
+    """Type of reference."""
+    JOURNAL_ARTICLE = "journal_article"
+    BOOK = "book"
+    BOOK_CHAPTER = "book_chapter"
+    CONFERENCE_PAPER = "conference_paper"
+    THESIS = "thesis"
+    PREPRINT = "preprint"
+    WEBPAGE = "webpage"
+    SOFTWARE = "software"
+    DATASET = "dataset"
+    OTHER = "other"
 
-  // Publication details
-  journal?: string;
-  volume?: string;
-  issue?: string;
-  pages?: string;
-  publisher?: string;
 
-  // Identifiers
-  doi?: string;
-  url?: string;
-  isbn?: string;
-  arxiv_id?: string;
+class Reference(BaseModel):
+    """Bibliographic reference."""
+    id: str
 
-  // Citation count
-  cited_by?: string[]; // IDs of citations
+    # Bibliographic information
+    type: ReferenceType
 
-  // Raw text
-  raw_text?: string;
-}
+    # Core fields
+    title: Optional[str] = None
+    authors: List[Author] = Field(default_factory=list)
+    year: Optional[int] = None
 
-enum ReferenceType {
-  JOURNAL_ARTICLE = "journal_article",
-  BOOK = "book",
-  BOOK_CHAPTER = "book_chapter",
-  CONFERENCE_PAPER = "conference_paper",
-  THESIS = "thesis",
-  PREPRINT = "preprint",
-  WEBPAGE = "webpage",
-  SOFTWARE = "software",
-  DATASET = "dataset",
-  OTHER = "other"
-}
+    # Publication details
+    journal: Optional[str] = None
+    volume: Optional[str] = None
+    issue: Optional[str] = None
+    pages: Optional[str] = None
+    publisher: Optional[str] = None
+
+    # Identifiers
+    doi: Optional[str] = None
+    url: Optional[str] = None
+    isbn: Optional[str] = None
+    arxiv_id: Optional[str] = None
+
+    # Citation count
+    cited_by: List[str] = Field(default_factory=list)  # IDs of citations
+
+    # Raw text
+    raw_text: Optional[str] = None
 ```
 
 ### Relationships
 
 General relationship model for arbitrary connections:
 
-```typescript
-interface Relationship {
-  id: string;
+```python
+class RelationshipType(str, Enum):
+    """Type of relationship between elements."""
+    # Hierarchical
+    PARENT_CHILD = "parent_child"
+    CONTAINS = "contains"
 
-  // Relationship type
-  type: RelationshipType | string; // Extensible
+    # Sequential
+    FOLLOWS = "follows"
+    PRECEDES = "precedes"
 
-  // Connected elements
-  source_id: string;
-  target_id: string;
+    # Referential
+    REFERENCES = "references"
+    CITED_BY = "cited_by"
+    DESCRIBES = "describes"
 
-  // Relationship properties
-  label?: string;
-  properties?: Record<string, any>;
+    # Associative
+    RELATED_TO = "related_to"
+    SAME_AS = "same_as"
+    SIMILAR_TO = "similar_to"
 
-  // Confidence
-  confidence?: number;
-}
+    # Compositional
+    PART_OF = "part_of"
+    HAS_PART = "has_part"
 
-enum RelationshipType {
-  // Hierarchical
-  PARENT_CHILD = "parent_child",
-  CONTAINS = "contains",
+    # Custom
+    CUSTOM = "custom"
 
-  // Sequential
-  FOLLOWS = "follows",
-  PRECEDES = "precedes",
 
-  // Referential
-  REFERENCES = "references",
-  CITED_BY = "cited_by",
-  DESCRIBES = "describes",
+class Relationship(BaseModel):
+    """Relationship between document elements."""
+    id: str
 
-  // Associative
-  RELATED_TO = "related_to",
-  SAME_AS = "same_as",
-  SIMILAR_TO = "similar_to",
+    # Relationship type
+    type: Union[RelationshipType, str]  # Extensible
 
-  // Compositional
-  PART_OF = "part_of",
-  HAS_PART = "has_part",
+    # Connected elements
+    source_id: str
+    target_id: str
 
-  // Custom
-  CUSTOM = "custom"
-}
+    # Relationship properties
+    label: Optional[str] = None
+    properties: Dict[str, Any] = Field(default_factory=dict)
+
+    # Confidence
+    confidence: Optional[float] = Field(None, ge=0.0, le=1.0)
 ```
 
 ## Format-Specific Extensions
@@ -661,139 +702,150 @@ enum RelationshipType {
 
 Additional fields when `format = DocumentFormat.HTML`:
 
-```typescript
-interface WebMetadataExtension {
-  // Web-specific metadata
-  web_metadata?: WebMetadata;
+```python
+class Viewport(BaseModel):
+    """Viewport dimensions."""
+    width: int
+    height: int
 
-  // DOM structure (optional, for HTML parsing)
-  dom_structure?: DOMNode;
 
-  // SEO elements
-  seo?: SEOData;
-}
+class WebMetadata(BaseModel):
+    """Web-specific metadata."""
+    # URL structure
+    canonical_url: Optional[str] = None
+    base_url: Optional[str] = None
 
-// Add to Document.metadata.custom when format = HTML
-// e.g., metadata.custom.web_metadata = {...}
+    # HTTP metadata
+    status_code: Optional[int] = None
+    content_type: Optional[str] = None
+    headers: Dict[str, str] = Field(default_factory=dict)
 
-interface WebMetadata {
-  // URL structure
-  canonical_url?: string;
-  base_url?: string;
+    # Page properties
+    viewport: Optional[Viewport] = None
 
-  // HTTP metadata
-  status_code?: number;
-  content_type?: string;
-  headers?: Record<string, string>;
+    # Open Graph
+    og_data: Dict[str, str] = Field(default_factory=dict)
 
-  // Page properties
-  viewport?: {
-    width: number;
-    height: number;
-  };
+    # Twitter Card
+    twitter_data: Dict[str, str] = Field(default_factory=dict)
 
-  // Open Graph
-  og_data?: Record<string, string>;
 
-  // Twitter Card
-  twitter_data?: Record<string, string>;
-}
+class DOMNode(BaseModel):
+    """DOM node in HTML structure."""
+    tag: str
+    attributes: Dict[str, str] = Field(default_factory=dict)
+    children: List["DOMNode"] = Field(default_factory=list)
+    text: Optional[str] = None
 
-interface DOMNode {
-  tag: string;
-  attributes?: Record<string, string>;
-  children?: DOMNode[];
-  text?: string;
+    # Mapping to content elements
+    content_id: Optional[str] = None
 
-  // Mapping to content elements
-  content_id?: string;
-}
 
-interface SEOData {
-  meta_description?: string;
-  meta_keywords?: string[];
-  h1_tags?: string[];
-  schema_markup?: any; // JSON-LD data
-}
+class SEOData(BaseModel):
+    """SEO metadata."""
+    meta_description: Optional[str] = None
+    meta_keywords: List[str] = Field(default_factory=list)
+    h1_tags: List[str] = Field(default_factory=list)
+    schema_markup: Optional[Any] = None  # JSON-LD data
+
+
+class WebMetadataExtension(BaseModel):
+    """Extension for web documents.
+
+    Add to Document.metadata.custom when format = HTML
+    e.g., metadata.custom.web_metadata = {...}
+    """
+    # Web-specific metadata
+    web_metadata: Optional[WebMetadata] = None
+
+    # DOM structure (optional, for HTML parsing)
+    dom_structure: Optional[DOMNode] = None
+
+    # SEO elements
+    seo: Optional[SEOData] = None
 ```
 
 ### PDF Documents
 
 Additional fields when `format = DocumentFormat.PDF`:
 
-```typescript
-interface PDFMetadataExtension {
-  // PDF-specific metadata
-  pdf_metadata?: PDFMetadata;
+```python
+class PDFMetadata(BaseModel):
+    """PDF-specific metadata."""
+    # PDF properties
+    pdf_version: Optional[str] = None
+    page_count: int
 
-  // Page structure
-  pages?: PDFPage[];
-}
+    # PDF metadata fields
+    producer: Optional[str] = None
+    creator: Optional[str] = None
+    creation_date: Optional[str] = None
+    modification_date: Optional[str] = None
 
-// Add to Document.metadata.custom when format = PDF
-// e.g., metadata.custom.pdf_metadata = {...}
-// e.g., document.custom.pages = [...]
+    # Document properties
+    is_tagged: Optional[bool] = None  # PDF/UA
+    is_encrypted: Optional[bool] = None
+    is_linearized: Optional[bool] = None
 
-interface PDFMetadata {
-  // PDF properties
-  pdf_version?: string;
-  page_count: number;
+    # Page layout
+    page_layout: Optional[Literal["single", "continuous", "two_column"]] = None
+    page_mode: Optional[Literal["full_screen", "thumbnails", "outlines"]] = None
 
-  // PDF metadata fields
-  producer?: string;
-  creator?: string;
-  creation_date?: string;
-  modification_date?: string;
 
-  // Document properties
-  is_tagged?: boolean; // PDF/UA
-  is_encrypted?: boolean;
-  is_linearized?: boolean;
+class TextBlock(BaseModel):
+    """Text block with formatting in PDF."""
+    text: str
+    bbox: BoundingBox
 
-  // Page layout
-  page_layout?: "single" | "continuous" | "two_column";
-  page_mode?: "full_screen" | "thumbnails" | "outlines";
-}
+    # Font information
+    font_name: Optional[str] = None
+    font_size: Optional[float] = None
 
-interface PDFPage {
-  page_number: number;
+    # Text properties
+    is_bold: Optional[bool] = None
+    is_italic: Optional[bool] = None
+    color: Optional[str] = None
 
-  // Page dimensions (in PDF points, 72 DPI)
-  width: number;
-  height: number;
-  rotation?: number; // 0, 90, 180, 270
+    # Reading order
+    sequence: Optional[int] = None
 
-  // Content on this page
-  content_ids: string[];
-  figure_ids: string[];
-  table_ids: string[];
+    # Confidence
+    confidence: Optional[float] = Field(None, ge=0.0, le=1.0)
 
-  // Text blocks with coordinates
-  text_blocks?: TextBlock[];
 
-  // Raw page data
-  raw_text?: string;
-}
+class PDFPage(BaseModel):
+    """PDF page information."""
+    page_number: int
 
-interface TextBlock {
-  text: string;
-  bbox: BoundingBox;
+    # Page dimensions (in PDF points, 72 DPI)
+    width: float
+    height: float
+    rotation: Optional[int] = None  # 0, 90, 180, 270
 
-  // Font information
-  font_name?: string;
-  font_size?: number;
+    # Content on this page
+    content_ids: List[str] = Field(default_factory=list)
+    figure_ids: List[str] = Field(default_factory=list)
+    table_ids: List[str] = Field(default_factory=list)
 
-  // Text properties
-  is_bold?: boolean;
-  is_italic?: boolean;
-  color?: string;
+    # Text blocks with coordinates
+    text_blocks: List[TextBlock] = Field(default_factory=list)
 
-  // Reading order
-  sequence?: number;
+    # Raw page data
+    raw_text: Optional[str] = None
 
-  // Confidence
-  confidence?: number;
-}
+
+class PDFMetadataExtension(BaseModel):
+    """Extension for PDF documents.
+
+    Add to Document.metadata.custom when format = PDF
+    e.g., metadata.custom.pdf_metadata = {...}
+    e.g., document.custom.pages = [...]
+    """
+    # PDF-specific metadata
+    pdf_metadata: Optional[PDFMetadata] = None
+
+    # Page structure
+    pages: List[PDFPage] = Field(default_factory=list)
 ```
 
 ## Category-Specific Extensions
@@ -802,252 +854,281 @@ interface TextBlock {
 
 Additional fields when `category = DocumentCategory.ACADEMIC_PAPER`:
 
-```typescript
-interface AcademicPaperExtension {
-  // Paper-specific structure (following JATS)
-  front_matter?: FrontMatter;
-  abstract?: Abstract;
-  body?: Body;
-  back_matter?: BackMatter;
-}
+```python
+class TranslatedTitle(BaseModel):
+    """Translated title in another language."""
+    language: str
+    title: str
 
-// Add to Document.metadata.custom when category = ACADEMIC_PAPER
-// e.g., metadata.custom.academic = {...}
 
-interface FrontMatter {
-  title_group?: {
-    title: string;
-    subtitle?: string;
-    translated_titles?: Array<{
-      language: string;
-      title: string;
-    }>;
-  };
+class TitleGroup(BaseModel):
+    """Title group for academic paper."""
+    title: str
+    subtitle: Optional[str] = None
+    translated_titles: List[TranslatedTitle] = Field(default_factory=list)
 
-  authors: Author[];
 
-  affiliations?: Affiliation[];
+class Affiliation(BaseModel):
+    """Author affiliation."""
+    id: str
+    institution: str
+    department: Optional[str] = None
+    city: Optional[str] = None
+    country: Optional[str] = None
 
-  correspondence?: {
-    author_id: string;
-    email: string;
-    address?: string;
-  };
 
-  dates?: {
-    received?: string;
-    accepted?: string;
-    published?: string;
-  };
+class Correspondence(BaseModel):
+    """Corresponding author information."""
+    author_id: str
+    email: str
+    address: Optional[str] = None
 
-  funding?: FundingInfo[];
 
-  keywords?: string[];
-}
+class PaperDates(BaseModel):
+    """Important dates for paper."""
+    received: Optional[str] = None
+    accepted: Optional[str] = None
+    published: Optional[str] = None
 
-interface Affiliation {
-  id: string;
-  institution: string;
-  department?: string;
-  city?: string;
-  country?: string;
-}
 
-interface FundingInfo {
-  agency: string;
-  grant_number?: string;
-  recipient?: string;
-}
+class FundingInfo(BaseModel):
+    """Funding information."""
+    agency: str
+    grant_number: Optional[str] = None
+    recipient: Optional[str] = None
 
-interface Abstract {
-  type?: "structured" | "unstructured";
-  sections?: Array<{
-    label?: string; // Background, Methods, Results, Conclusions
-    content: string;
-  }>;
-  plain_text?: string;
-}
 
-interface Body {
-  sections: Section[];
-}
+class FrontMatter(BaseModel):
+    """Front matter of academic paper."""
+    title_group: Optional[TitleGroup] = None
+    authors: List[Author]
+    affiliations: List[Affiliation] = Field(default_factory=list)
+    correspondence: Optional[Correspondence] = None
+    dates: Optional[PaperDates] = None
+    funding: List[FundingInfo] = Field(default_factory=list)
+    keywords: List[str] = Field(default_factory=list)
 
-interface Section {
-  id: string;
-  label?: string; // "Introduction", "Methods", etc.
-  title?: string;
-  level: number; // 1, 2, 3, etc.
 
-  // Content
-  content_ids: string[];
-  subsections?: Section[];
+class AbstractSection(BaseModel):
+    """Section within a structured abstract."""
+    label: Optional[str] = None  # Background, Methods, Results, Conclusions
+    content: str
 
-  // Position
-  bbox?: BoundingBox;
-}
 
-interface BackMatter {
-  // Acknowledgments
-  acknowledgments?: string;
+class Abstract(BaseModel):
+    """Abstract of academic paper."""
+    type: Optional[Literal["structured", "unstructured"]] = None
+    sections: List[AbstractSection] = Field(default_factory=list)
+    plain_text: Optional[str] = None
 
-  // References
-  references: Reference[];
 
-  // Appendices
-  appendices?: Appendix[];
+class Section(BaseModel):
+    """Section in document body."""
+    id: str
+    label: Optional[str] = None  # "Introduction", "Methods", etc.
+    title: Optional[str] = None
+    level: int  # 1, 2, 3, etc.
 
-  // Author contributions
-  author_contributions?: Record<string, string>;
+    # Content
+    content_ids: List[str]
+    subsections: List["Section"] = Field(default_factory=list)
 
-  // Conflict of interest
-  conflict_of_interest?: string;
+    # Position
+    bbox: Optional[BoundingBox] = None
 
-  // Data availability
-  data_availability?: string;
-}
 
-interface Appendix {
-  id: string;
-  label: string; // "Appendix A", etc.
-  title?: string;
-  content_ids: string[];
-}
+class Appendix(BaseModel):
+    """Appendix section."""
+    id: str
+    label: str  # "Appendix A", etc.
+    title: Optional[str] = None
+    content_ids: List[str]
+
+
+class Body(BaseModel):
+    """Body of academic paper."""
+    sections: List[Section]
+
+
+class BackMatter(BaseModel):
+    """Back matter of academic paper."""
+    # Acknowledgments
+    acknowledgments: Optional[str] = None
+
+    # References
+    references: List[Reference]
+
+    # Appendices
+    appendices: List[Appendix] = Field(default_factory=list)
+
+    # Author contributions
+    author_contributions: Dict[str, str] = Field(default_factory=dict)
+
+    # Conflict of interest
+    conflict_of_interest: Optional[str] = None
+
+    # Data availability
+    data_availability: Optional[str] = None
+
+
+class AcademicPaperExtension(BaseModel):
+    """Extension for academic papers.
+
+    Add to Document.metadata.custom when category = ACADEMIC_PAPER
+    e.g., metadata.custom.academic = {...}
+    """
+    # Paper-specific structure (following JATS)
+    front_matter: Optional[FrontMatter] = None
+    abstract: Optional[Abstract] = None
+    body: Optional[Body] = None
+    back_matter: Optional[BackMatter] = None
 ```
 
 ## Rendering Information
 
 Information about how the document was rendered for VLM analysis:
 
-```typescript
-interface RenderingInfo {
-  // Rendering method
-  method: "playwright" | "pdf2image" | "matplotlib" | "custom";
+```python
+class RendererViewport(BaseModel):
+    """Viewport configuration for rendering."""
+    width: int
+    height: int
 
-  // Renderer configuration
-  config?: RendererConfig;
 
-  // Screenshots
-  screenshots?: Screenshot[];
+class RendererConfig(BaseModel):
+    """Configuration for document renderer."""
+    # Browser/engine
+    browser: Optional[Literal["chromium", "firefox", "webkit"]] = None
 
-  // Timestamp
-  rendered_at: string; // ISO 8601
-}
+    # Viewport
+    viewport: Optional[RendererViewport] = None
 
-interface RendererConfig {
-  // Browser/engine
-  browser?: "chromium" | "firefox" | "webkit";
+    # PDF rendering
+    dpi: Optional[int] = None
 
-  // Viewport
-  viewport?: {
-    width: number;
-    height: number;
-  };
+    # Wait conditions
+    wait_until: Optional[Literal["load", "domcontentloaded", "networkidle"]] = None
+    wait_time: Optional[int] = None  # milliseconds
 
-  // PDF rendering
-  dpi?: number;
+    # Custom options
+    custom: Dict[str, Any] = Field(default_factory=dict)
 
-  // Wait conditions
-  wait_until?: "load" | "domcontentloaded" | "networkidle";
-  wait_time?: number; // milliseconds
 
-  // Custom options
-  custom?: Record<string, any>;
-}
+class Screenshot(BaseModel):
+    """Screenshot of rendered document page."""
+    page: int
 
-interface Screenshot {
-  page: number;
+    # Image data
+    image_url: Optional[str] = None
+    image_data: Optional[str] = None  # Base64
 
-  // Image data
-  image_url?: string;
-  image_data?: string; // Base64
+    # Image properties
+    width: int
+    height: int
+    format: Literal["png", "jpg", "webp"]
 
-  // Image properties
-  width: number;
-  height: number;
-  format: "png" | "jpg" | "webp";
+    # File info
+    file_size: Optional[int] = None
+    checksum: Optional[str] = None
 
-  // File info
-  file_size?: number;
-  checksum?: string;
-}
+
+class RenderingInfo(BaseModel):
+    """Information about document rendering for VLM analysis."""
+    # Rendering method
+    method: Literal["playwright", "pdf2image", "matplotlib", "custom"]
+
+    # Renderer configuration
+    config: Optional[RendererConfig] = None
+
+    # Screenshots
+    screenshots: List[Screenshot] = Field(default_factory=list)
+
+    # Timestamp
+    rendered_at: str  # ISO 8601
 ```
 
 ## Extraction Metadata
 
 Information about the extraction process:
 
-```typescript
-interface ExtractionMetadata {
-  // Extraction method
-  method: "tool" | "vlm";
+```python
+class Library(BaseModel):
+    """Library dependency information."""
+    name: str
+    version: str
 
-  // Tool information
-  tool?: ToolInfo;
 
-  // VLM information
-  vlm?: VLMInfo;
+class ToolInfo(BaseModel):
+    """Information about extraction tool."""
+    name: str
+    version: Optional[str] = None
 
-  // Timing
-  extracted_at: string; // ISO 8601
-  duration_ms?: number;
+    # Libraries used
+    libraries: List[Library] = Field(default_factory=list)
 
-  // Quality metrics
-  confidence?: number;
-  completeness?: number; // 0.0 - 1.0
+    # Configuration
+    config: Dict[str, Any] = Field(default_factory=dict)
 
-  // Warnings and errors
-  warnings?: string[];
-  errors?: string[];
-}
 
-interface ToolInfo {
-  name: string;
-  version?: string;
+class VLMPrompt(BaseModel):
+    """VLM prompt and response."""
+    prompt: str
+    response: str
 
-  // Libraries used
-  libraries?: Array<{
-    name: string;
-    version: string;
-  }>;
+    # For multi-request strategies
+    purpose: Optional[str] = None  # "extract_metadata", "extract_figures", etc.
 
-  // Configuration
-  config?: Record<string, any>;
-}
+    # Tokens
+    input_tokens: Optional[int] = None
+    output_tokens: Optional[int] = None
 
-interface VLMInfo {
-  model: string; // e.g., "glm-4.5v"
-  provider?: string;
 
-  // API details
-  api_version?: string;
-  endpoint?: string;
+class VLMInfo(BaseModel):
+    """Information about VLM extraction."""
+    model: str  # e.g., "glm-4.5v"
+    provider: Optional[str] = None
 
-  // Request details
-  prompts?: VLMPrompt[];
+    # API details
+    api_version: Optional[str] = None
+    endpoint: Optional[str] = None
 
-  // Response details
-  total_tokens?: number;
-  input_tokens?: number;
-  output_tokens?: number;
+    # Request details
+    prompts: List[VLMPrompt] = Field(default_factory=list)
 
-  // Cost
-  cost_usd?: number;
+    # Response details
+    total_tokens: Optional[int] = None
+    input_tokens: Optional[int] = None
+    output_tokens: Optional[int] = None
 
-  // Features used
-  features?: string[]; // ["grounding", "thinking", etc.]
-}
+    # Cost
+    cost_usd: Optional[float] = None
 
-interface VLMPrompt {
-  prompt: string;
-  response: string;
+    # Features used
+    features: List[str] = Field(default_factory=list)  # ["grounding", "thinking", etc.]
 
-  // For multi-request strategies
-  purpose?: string; // "extract_metadata", "extract_figures", etc.
 
-  // Tokens
-  input_tokens?: number;
-  output_tokens?: number;
-}
+class ExtractionMetadata(BaseModel):
+    """Metadata about the extraction process."""
+    # Extraction method
+    method: Literal["tool", "vlm"]
+
+    # Tool information
+    tool: Optional[ToolInfo] = None
+
+    # VLM information
+    vlm: Optional[VLMInfo] = None
+
+    # Timing
+    extracted_at: str  # ISO 8601
+    duration_ms: Optional[int] = None
+
+    # Quality metrics
+    confidence: Optional[float] = Field(None, ge=0.0, le=1.0)
+    completeness: Optional[float] = Field(None, ge=0.0, le=1.0)
+
+    # Warnings and errors
+    warnings: List[str] = Field(default_factory=list)
+    errors: List[str] = Field(default_factory=list)
 ```
 
 ## Validation Schema
@@ -1415,6 +1496,40 @@ The schema can be extended for domain-specific needs:
 3. **Custom Metadata**: Use `metadata.custom` for domain-specific fields
 4. **Custom Attributes**: Use `attributes.custom` for element-specific properties
 5. **Document Subtypes**: Extend base `Document` interface for new document types
+
+## Relationship with Simple Schema
+
+This full schema has a simplified version defined in [SCHEMA_SIMPLE.md](./SCHEMA_SIMPLE.md):
+
+- **Simple Schema**: Minimal subset for quick prototyping and simple documents
+- **Full Schema**: Complete specification for complex documents
+
+### Key Differences
+
+| Aspect | Simple Schema | Full Schema |
+|--------|--------------|-------------|
+| **Content Elements** | Flat list, plain text only | Hierarchical with rich text, attributes |
+| **Figures** | Just caption and bbox | Full type, image data, relationships |
+| **Tables** | Simple rows of strings | Complete cell structure with formatting |
+| **Metadata** | Title, authors, date, keywords | Complete publication info, identifiers |
+| **Citations** | Not included | Full citation and reference support |
+| **Relationships** | Not included | Complete relationship modeling |
+| **Format Extensions** | Not included | HTML, PDF-specific metadata |
+| **Category Extensions** | Not included | Academic paper, presentation structure |
+
+### Migration Path
+
+The simple schema is designed to be easily upgraded to the full schema:
+
+```python
+# Start with simple schema for prototyping
+simple_doc = SimpleDocument(...)
+
+# Upgrade when you need more detail
+full_doc = upgrade_to_full_schema(simple_doc)
+```
+
+See [SCHEMA_SIMPLE.md](./SCHEMA_SIMPLE.md) for complete documentation and examples.
 
 ## Version History
 
