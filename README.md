@@ -93,20 +93,261 @@ Compares program output against VLM analysis using:
 - **Semantic matching**: For content equivalence despite formatting differences
 - **Visual grounding**: For element positions and bounding boxes
 
+## Testing Pipeline Architecture
+
+Our testing pipeline orchestrates multiple specialized tools, each excelling at specific tasks. The architecture follows a **staged approach** with **routing logic** based on document type and layout analysis.
+
+### Pipeline Overview
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                     DOCUMENT INGESTION                          │
+│  PDF/HTML/Image → [PyMuPDF/Playwright] → Raw content + images  │
+└────────────────────────────┬────────────────────────────────────┘
+                             │
+                             ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                     LAYOUT ANALYSIS                             │
+│  Page image → [Surya] → Reading order + Region classification  │
+│  └─ Fallback: [pdfplumber] for simple bbox detection           │
+└────────────────────────────┬────────────────────────────────────┘
+                             │
+                ┌────────────┴────────────┐
+                │   ROUTING LOGIC         │
+                │   (by region type)      │
+                └┬────────┬──────┬───────┘
+                 │        │      │
+       ┌─────────▼─┐   ┌─▼───┐ ┌▼────────┐
+       │   Text    │   │Table│ │ Image   │
+       │  Regions  │   │ Reg.│ │ Regions │
+       └─────┬─────┘   └──┬──┘ └────┬────┘
+             │            │         │
+             ▼            ▼         ▼
+        ┌────────┐  ┌──────────┐ ┌────────────┐
+        │PyMuPDF │  │pdfplumber│ │   DePlot   │
+        │extract │  │  table   │ │ chart→data │
+        └────┬───┘  │ extract  │ └─────┬──────┘
+             │      └─────┬────┘       │
+             │            │            │
+             └────────────┴────────────┘
+                         │
+                         ▼
+            ┌────────────────────────┐
+            │  STRUCTURED EXTRACTION │
+            │  [Instructor + VLM]    │
+            │  → Pydantic validation │
+            └────────────┬───────────┘
+                         │
+                         ▼
+            ┌────────────────────────┐
+            │      VALIDATION        │
+            │  ┌──────────────────┐  │
+            │  │ Visual: SSIM +   │  │
+            │  │ pytest-snapshot  │  │
+            │  ├──────────────────┤  │
+            │  │ Data: DeepDiff + │  │
+            │  │ numerical tol.   │  │
+            │  ├──────────────────┤  │
+            │  │ Text: TheFuzz    │  │
+            │  │ fuzzy matching   │  │
+            │  ├──────────────────┤  │
+            │  │ Grounding: VLM   │  │
+            │  │ spatial verify   │  │
+            │  └──────────────────┘  │
+            └────────────────────────┘
+```
+
+### Component Responsibilities
+
+#### 1. **Ingestion Layer**
+
+**Tool: PyMuPDF (fitz)**
+- **Role**: Fast PDF rendering and coordinate-aware text extraction
+- **Output**: Text blocks with bounding boxes (PDF points, 72 DPI)
+- **When to use**: All PDF processing, especially when speed matters
+- **Note**: Coordinate system requires transformation for VLM correlation
+
+**Tool: Playwright**
+- **Role**: Web page rendering to screenshots
+- **Output**: PNG/JPEG screenshots, DOM structure
+- **When to use**: HTML/web page testing
+
+**Trade-off**: PyMuPDF is deterministic but heuristic-based. May merge text incorrectly in complex layouts.
+
+#### 2. **Layout Analysis & Routing**
+
+**Tool: Surya** (GPU-dependent, optional)
+- **Role**: Deep learning-based layout understanding
+- **Output**:
+  - Reading order for multi-column documents
+  - Region classification (Header, Footer, Image, Table, Text)
+  - Line-level detection preserving structure
+- **When to use**: Complex layouts (academic papers, magazines)
+- **Fallback**: pdfplumber's simpler bbox detection
+
+**Why this matters**: Surya provides **routing logic**. It tells us which regions are charts (→ DePlot), tables (→ pdfplumber), or text (→ PyMuPDF).
+
+#### 3. **Specialized Extraction**
+
+**Tool: pdfplumber**
+- **Role**: Precision table extraction
+- **How it works**: Detects vertical/horizontal lines, infers grid structure, extracts cells
+- **Output**: Structured table data with cell coordinates
+- **When to use**: PDFs with line-delimited tables
+- **Debugging**: Provides visual overlay feature to verify detected tables
+
+**Tool: DePlot** (GPU-dependent)
+- **Role**: Chart analysis via plot-to-table translation
+- **How it works**:
+  1. Takes plot image as input
+  2. Outputs linearized text table (CSV/Markdown)
+  3. Separate LLM reasons over table (two-stage approach)
+- **Output**: Data table that can be validated
+- **When to use**: `plot_visualization` category testing
+- **Alternative**: Matcha for mathematical/scientific plots
+
+**Why two-stage?**: Separating extraction (DePlot) from reasoning (LLM) enables validation of the extracted data before analysis.
+
+#### 4. **Structured Output Enforcement**
+
+**Tool: Instructor** (Critical)
+- **Role**: Bridges VLMs and Pydantic schemas
+- **How it works**:
+  1. Sends image + prompt to VLM (GLM-4.5V, GPT-4V)
+  2. Receives text response
+  3. Attempts to parse into Pydantic model
+  4. If validation fails → re-prompts VLM with error message
+  5. Repeats until valid or max retries
+- **Why critical**: Without this, VLM outputs are unreliable strings. With this, they're validated objects.
+- **Output**: Validated `Document`, `ContentElement`, `Figure`, etc.
+
+**Example**:
+```python
+import instructor
+from openai import OpenAI
+
+client = instructor.from_openai(OpenAI())
+
+# VLM extraction with automatic validation
+doc_metadata = client.chat.completions.create(
+    model="gpt-4-vision",
+    messages=[{
+        "role": "user",
+        "content": [
+            {"type": "text", "text": "Extract document metadata"},
+            {"type": "image_url", "image_url": {"url": screenshot_url}}
+        ]
+    }],
+    response_model=DocumentMetadata  # Our Pydantic class!
+)
+
+# doc_metadata is now a validated DocumentMetadata instance
+assert isinstance(doc_metadata, DocumentMetadata)
+```
+
+#### 5. **Validation Layer**
+
+**Tool: DeepDiff**
+- **Role**: Fuzzy comparison of complex objects
+- **Use case**: Compare tool output vs. VLM output with tolerance
+- **Key feature**: `significant_digits` and `math_epsilon` for numerical tolerance
+- **Why needed**: DePlot extracts 15.50001 from interpolation, expected is 15.5 → should match!
+
+**Example**:
+```python
+from deepdiff import DeepDiff
+
+diff = DeepDiff(
+    tool_output,
+    vlm_output,
+    significant_digits=5,      # Ignore tiny float differences
+    math_epsilon=1e-5,
+    ignore_order=True          # List order doesn't matter
+)
+
+assert not diff  # No significant differences
+```
+
+**Tool: TheFuzz**
+- **Role**: Fuzzy string matching
+- **Use case**: Compare extracted text with OCR variations
+- **Key feature**: `token_set_ratio` handles word order differences
+- **Example**: "Quarterly Report 2023" matches "2023 Report Quarterly" at 100%
+
+**Tool: pytest-image-snapshot**
+- **Role**: Visual regression testing
+- **How it works**:
+  1. First run: saves screenshot as baseline
+  2. Subsequent runs: compares to baseline
+  3. Uses pixelmatch algorithm (ignores anti-aliasing)
+- **Key feature**: **Masking** - can ignore dynamic regions (timestamps, IDs)
+
+**Masking workflow**:
+```python
+# Use Surya to detect dynamic regions
+layout = surya.detect_layout(screenshot)
+dynamic_regions = [elem.bbox for elem in layout.elements
+                   if elem.type in ["Footer", "Header"]]
+
+# Mask before comparison
+compare_with_masking(baseline, screenshot, masked_regions=dynamic_regions)
+```
+
+**Tool: SSIM (scikit-image)**
+- **Role**: Perceptual image comparison
+- **Why better than pixel diff**: Compares structure, not exact pixels
+- **Use case**: Charts may be slightly shifted/compressed → SSIM tolerates this
+- **Threshold**: 0.98 typically means "visually identical"
+
+#### 6. **Specialized: Academic Papers**
+
+**Tool: GROBID** (requires Docker service)
+- **Role**: ML-based scholarly PDF parsing
+- **Trained on**: Millions of academic papers
+- **Output**: TEI XML with:
+  - Author-affiliation linking
+  - Section hierarchy (Intro → Methods → Results → Discussion)
+  - In-text citations → bibliography mapping
+  - Figure/table caption detection with numbering
+- **When to use**: `academic_paper` category
+- **Setup**: Docker Compose file provided
+- **Fallback**: Marker for users who can't run Docker
+
+**Integration**:
+```python
+from grobid_client import GrobidClient
+
+grobid = GrobidClient(config_path="config.json")
+tei_xml = grobid.process_pdf("paper.pdf", service="processFulltextDocument")
+
+# Parse TEI XML → our Pydantic schema
+paper = parse_tei_to_document(tei_xml)
+assert paper.category == DocumentCategory.ACADEMIC_PAPER
+```
+
+### Tool Selection Decision Tree
+
+```
+Is it a PDF?
+├─ Yes → Is it an academic paper?
+│   ├─ Yes → GROBID (if available) or Marker
+│   └─ No → PyMuPDF + pdfplumber
+│
+└─ No → Is it HTML?
+    ├─ Yes → Playwright + BeautifulSoup
+    └─ No → Is it a plot image?
+        ├─ Yes → DePlot → Instructor → VLM
+        └─ No → Direct VLM analysis
+
+After extraction, always:
+1. Layout analysis (Surya if GPU, else pdfplumber)
+2. Structured extraction (Instructor + VLM)
+3. Validation (DeepDiff + TheFuzz + pytest-snapshot)
+```
+
 ## Technical Architecture
 
 ### Components
-
-#### 1. **Renderer**
-Converts documents to visual representations:
-```python
-class Renderer:
-    def render_webpage(url: str) -> Screenshot
-    def render_pdf(path: str, page: int) -> Screenshot
-    def render_plot(figure: Figure) -> Screenshot
-```
-
-Uses Playwright for web content, pdf2image or similar for PDFs.
 
 #### 2. **Program Output Schema**
 Defines structured output format:
@@ -328,10 +569,14 @@ Based on current VLM literature and best practices:
 
 ```
 .
-├── README.md                 # This file
-├── SCHEMA.md                 # Full document schema (Pydantic models)
-├── SCHEMA_SIMPLE.md          # Simplified schema for quick prototyping
-├── TESTING.md                # Testing strategy and test matrix
+├── README.md                          # This file
+├── SCHEMA.md                          # Full document schema (Pydantic models)
+├── SCHEMA_SIMPLE.md                   # Simplified schema for quick prototyping
+├── TESTING.md                         # Testing strategy and test matrix
+├── TOOLS_PROPOSAL.md                  # Proposed tool additions (summary)
+├── TOOLS_PROPOSAL_THINKING.md         # Deep analysis and trade-offs
+├── chatgpt_libraries_and_tools.md     # Research: ChatGPT recommendations
+├── gemini_libraries_and_tools.md      # Research: Gemini technical analysis
 └── doc_understanding_render_checker/  # Micromamba environment (Python 3.11)
 ```
 
@@ -349,28 +594,89 @@ micromamba activate doc_understanding_render_checker
 pip install -r requirements.txt
 ```
 
-### Planned Dependencies
+### Dependencies
 
-- **Core**:
-  - `pydantic` - Schema validation and serialization
-  - `requests` - VLM API calls
-  - `pillow` - Image processing
+Based on comprehensive research (see [TOOLS_PROPOSAL_THINKING.md](./TOOLS_PROPOSAL_THINKING.md)), our dependencies are organized into tiers:
 
-- **Rendering**:
-  - `playwright` - Web page rendering
-  - `pdf2image` or `pypdfium2` - PDF rendering
+#### Phase 0: Foundation (Required)
 
-- **Testing**:
-  - `pytest` - Test framework
-  - `pytest-benchmark` - Performance testing
+**Schema & Structured Output:**
+- `pydantic>=2.0` - Schema definition and validation
+- `instructor` - **Critical**: Forces VLM outputs into valid Pydantic schemas with automatic retry logic
 
-- **Parsing Tools**:
-  - `beautifulsoup4` - HTML parsing
-  - `pdfplumber` or `pymupdf` - PDF text extraction
+**Core PDF Processing:**
+- `pymupdf` (fitz) - High-performance C-based PDF rendering and coordinate extraction
+- `pdfplumber` - Precision table extraction using line detection algorithms
 
-- **Utilities**:
-  - `python-dotenv` - Environment configuration
-  - `pyyaml` - Configuration files
+**Validation:**
+- `deepdiff` - Fuzzy object comparison with numerical tolerance (essential for float comparisons)
+- `thefuzz[speedup]` - Fuzzy string matching using Levenshtein distance
+
+**Basic Tools:**
+- `pillow` - Image processing
+- `requests` - VLM API calls
+- `python-dotenv` - Environment configuration
+
+#### Phase 1: Core Capabilities
+
+**Chart Analysis** (Critical for `plot_visualization` category):
+- `transformers[torch]` - For DePlot model
+- `accelerate` - GPU optimization for DePlot
+- DePlot model: Converts plot images → data tables (two-stage reasoning)
+
+**Visual Regression:**
+- `pytest` - Test framework
+- `pytest-image-snapshot` - Baseline image comparison with masking support
+- `scikit-image` - SSIM (Structural Similarity Index) for perceptual comparison
+
+**Layout Analysis** (Optional, GPU-dependent):
+- `surya-ocr` - Deep learning for reading order detection and layout segmentation
+- Fallback: Use pdfplumber's simpler bounding box extraction
+
+#### Phase 2: Specialized Tools
+
+**Academic Papers** (`academic_paper` category):
+- `grobid-client-python` - Client for GROBID service
+- GROBID service (Docker): ML-based extraction of paper structure (TEI XML output)
+- Fallback: `marker-pdf` for users who can't run GROBID
+
+**Web Rendering:**
+- `playwright` - Browser-based web page rendering
+- `beautifulsoup4` - HTML parsing
+
+**Alternative Representations:**
+- `marker-pdf` - High-fidelity PDF → Markdown conversion (~1GB model)
+- `unstructured[pdf]` - Semantic element partitioning
+
+#### Phase 3: Optional Enhancements
+
+**Advanced Chart Analysis:**
+- Matcha model - Mathematical derendering for scientific plots
+
+**Performance:**
+- `pytest-benchmark` - Performance testing
+- `rapidfuzz` - Faster fuzzy matching (C++ backend)
+
+**Lightweight VLM Alternative:**
+- SmolDocling - 256M param model for cost-effective document parsing
+
+### Installation Profiles
+
+Choose based on your needs:
+
+```bash
+# Minimal (CPU-only, no GPU tools)
+pip install -r requirements-core.txt
+
+# With GPU support (Surya, DePlot)
+pip install -r requirements-gpu.txt
+
+# Academic papers (requires Docker for GROBID)
+pip install -r requirements-academic.txt
+
+# Full installation
+pip install -r requirements-full.txt
+```
 
 ### API Keys
 
@@ -410,15 +716,80 @@ See [TESTING.md](./TESTING.md) for the complete testing strategy using the forma
 
 ## Current Status
 
-**Project Phase**: Specification & Design
+**Project Phase**: Specification Complete → Implementation Planning
 
-- ✅ Full schema definition (Pydantic models)
-- ✅ Simple schema definition (subset)
-- ✅ Testing strategy documented
-- ⏳ Implementation (in progress)
-- ⏳ Example parsers
-- ⏳ VLM integration
-- ⏳ Equivalence checker
+### Completed ✅
+- **Schema Design**:
+  - Full schema (SCHEMA.md) with Pydantic models
+  - Simple schema (SCHEMA_SIMPLE.md) as strict subset
+  - Format vs. category separation
+
+- **Testing Strategy**:
+  - Format × Category test matrix (TESTING.md)
+  - Equivalence checking framework
+  - Visual regression approach
+
+- **Tool Research**:
+  - Comprehensive analysis of 30+ tools
+  - Tool selection decision tree
+  - Pipeline architecture design
+  - Trade-off analysis (TOOLS_PROPOSAL_THINKING.md)
+
+### Next Steps 🚀
+
+#### Phase 0: Foundation (In Progress)
+- [ ] Create layered requirements files (core, GPU, academic, full)
+- [ ] Set up basic project structure with micromamba environment
+- [ ] Implement core Pydantic schemas from SCHEMA.md
+- [ ] Integrate Instructor for VLM output validation
+- [ ] Basic PDF extraction with PyMuPDF
+
+#### Phase 1: Core Pipeline (Week 1-2)
+- [ ] Implement DeepDiff-based equivalence checking
+- [ ] Add TheFuzz for fuzzy text matching
+- [ ] Integrate DePlot for chart analysis
+- [ ] pytest-image-snapshot setup for visual regression
+- [ ] Basic validation framework
+
+#### Phase 2: Advanced Features (Week 3-4)
+- [ ] Surya integration for layout analysis (optional GPU)
+- [ ] GROBID setup guide and integration
+- [ ] pdfplumber table extraction
+- [ ] Playwright web rendering
+- [ ] Format-specific parsers
+
+#### Phase 3: Polish (Week 5+)
+- [ ] Performance optimization (caching, batching)
+- [ ] Example test suite for each category
+- [ ] Documentation and tutorials
+- [ ] CI/CD integration examples
+
+### Tool Integration Status
+
+| Tool | Priority | Status | Notes |
+|------|----------|--------|-------|
+| **Instructor** | P0 | 📋 Planned | Critical for VLM reliability |
+| **PyMuPDF** | P0 | 📋 Planned | Core PDF processing |
+| **pdfplumber** | P0 | 📋 Planned | Table extraction |
+| **DeepDiff** | P0 | 📋 Planned | Validation foundation |
+| **TheFuzz** | P0 | 📋 Planned | Text similarity |
+| **DePlot** | P1 | 📋 Planned | Chart analysis (GPU) |
+| **pytest-image-snapshot** | P1 | 📋 Planned | Visual regression |
+| **Surya** | P1 | 📋 Planned | Layout analysis (optional) |
+| **GROBID** | P2 | 📋 Planned | Academic papers (Docker) |
+| **Marker** | P2 | 📋 Planned | PDF→Markdown fallback |
+| **Playwright** | P2 | 📋 Planned | Web rendering |
+
+### Design Decisions 📝
+
+**Key Architectural Choices** (from TOOLS_PROPOSAL_THINKING.md):
+
+1. **Hybrid Speed/Accuracy**: Fast methods first, fall back to VLM if low confidence
+2. **Layered Dependencies**: Core (CPU) → GPU → Academic → Full
+3. **Optional GPU Tools**: Surya and DePlot work on CPU but recommend GPU
+4. **GROBID as Optional**: Docker required, provide Marker fallback
+5. **Two-Stage Chart Analysis**: DePlot extraction → LLM reasoning (enables validation)
+6. **Instructor Integration**: All VLM outputs validated against Pydantic schemas
 
 ## Contributing
 
