@@ -324,18 +324,101 @@ Based on current VLM literature and best practices:
 - [ ] Support for video/animation testing
 - [ ] Integration with CI/CD pipelines
 
-## Installation (Planned)
+## Project Structure
 
-```bash
-pip install vlm-document-test
+```
+.
+├── README.md                 # This file
+├── SCHEMA.md                 # Full document schema (Pydantic models)
+├── SCHEMA_SIMPLE.md          # Simplified schema for quick prototyping
+├── TESTING.md                # Testing strategy and test matrix
+└── doc_understanding_render_checker/  # Micromamba environment (Python 3.11)
 ```
 
-Dependencies:
-- `playwright` for web rendering
-- `pdf2image` or `pypdfium2` for PDF rendering
-- `requests` for VLM API calls
-- `pillow` for image processing
-- `pytest` for test framework integration
+## Installation & Setup
+
+### Environment Setup
+
+This project uses a micromamba environment with Python 3.11:
+
+```bash
+# Activate the environment
+micromamba activate doc_understanding_render_checker
+
+# Install dependencies (when available)
+pip install -r requirements.txt
+```
+
+### Planned Dependencies
+
+- **Core**:
+  - `pydantic` - Schema validation and serialization
+  - `requests` - VLM API calls
+  - `pillow` - Image processing
+
+- **Rendering**:
+  - `playwright` - Web page rendering
+  - `pdf2image` or `pypdfium2` - PDF rendering
+
+- **Testing**:
+  - `pytest` - Test framework
+  - `pytest-benchmark` - Performance testing
+
+- **Parsing Tools**:
+  - `beautifulsoup4` - HTML parsing
+  - `pdfplumber` or `pymupdf` - PDF text extraction
+
+- **Utilities**:
+  - `python-dotenv` - Environment configuration
+  - `pyyaml` - Configuration files
+
+### API Keys
+
+Set your VLM API key:
+
+```bash
+export GLM_API_KEY="your-api-key-here"
+# Or add to .env file
+```
+
+## Quick Start
+
+### 1. Choose Your Schema
+
+Start with the simple schema for prototyping:
+
+```python
+from schema_simple import SimpleDocument, DocumentFormat, DocumentSource
+from datetime import datetime
+
+# Create a simple document
+doc = SimpleDocument(
+    id="test-001",
+    format=DocumentFormat.HTML,
+    source=DocumentSource(
+        url="https://example.com",
+        accessed_at=datetime.now()
+    )
+)
+```
+
+Or use the full schema for complex documents (see [SCHEMA.md](./SCHEMA.md)).
+
+### 2. Run Tests
+
+See [TESTING.md](./TESTING.md) for the complete testing strategy using the format × category test matrix.
+
+## Current Status
+
+**Project Phase**: Specification & Design
+
+- ✅ Full schema definition (Pydantic models)
+- ✅ Simple schema definition (subset)
+- ✅ Testing strategy documented
+- ⏳ Implementation (in progress)
+- ⏳ Example parsers
+- ⏳ VLM integration
+- ⏳ Equivalence checker
 
 ## Contributing
 
