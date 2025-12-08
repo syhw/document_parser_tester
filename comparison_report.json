@@ -1,0 +1,48 @@
+{
+  "match_quality": "fair",
+  "score": 0.8237777777777778,
+  "details": {
+    "metadata": {
+      "title_match": 1.0,
+      "author_count": {
+        "tool": 1,
+        "vlm": 1
+      },
+      "keyword_overlap": 0.6666666666666666
+    },
+    "content": {
+      "count": {
+        "tool": 7,
+        "vlm": 7
+      },
+      "type_distribution": {
+        "tool": {
+          "heading": 4,
+          "paragraph": 3
+        },
+        "vlm": {
+          "heading": 4,
+          "paragraph": 3
+        }
+      },
+      "text_similarity": 0.56
+    },
+    "figures": {
+      "count": {
+        "tool": 0,
+        "vlm": 0
+      }
+    },
+    "tables": {
+      "count": {
+        "tool": 0,
+        "vlm": 0
+      }
+    }
+  },
+  "differences": {},
+  "warnings": [
+    "Text similarity (56.00%) below threshold (85.00%)"
+  ],
+  "passed": false
+}

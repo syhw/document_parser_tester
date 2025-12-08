@@ -1,0 +1,87 @@
+{
+  "test_name": "Phase 1 Demo Test",
+  "timestamp": "2025-12-08T01:25:40.140431",
+  "passed": true,
+  "summary": {
+    "total_comparisons": 1,
+    "total_visual_comparisons": 1,
+    "passed": true,
+    "timestamp": "2025-12-08T01:25:40.140431",
+    "avg_score": 1.0,
+    "min_score": 1.0,
+    "max_score": 1.0,
+    "quality_distribution": {
+      "exact": 1
+    },
+    "avg_visual_similarity": 0.9957878396419005,
+    "visual_pass_rate": 1.0
+  },
+  "errors": [],
+  "warnings": [],
+  "comparisons": [
+    {
+      "match_quality": "exact",
+      "score": 1.0,
+      "details": {
+        "metadata": {
+          "title_match": 1.0,
+          "author_count": {
+            "tool": 1,
+            "vlm": 1
+          }
+        },
+        "content": {
+          "count": {
+            "tool": 6,
+            "vlm": 6
+          },
+          "type_distribution": {
+            "tool": {
+              "heading": 3,
+              "paragraph": 3
+            },
+            "vlm": {
+              "heading": 3,
+              "paragraph": 3
+            }
+          },
+          "text_similarity": 1.0
+        },
+        "figures": {
+          "count": {
+            "tool": 0,
+            "vlm": 0
+          }
+        },
+        "tables": {
+          "count": {
+            "tool": 1,
+            "vlm": 1
+          },
+          "dimension_match": 1.0
+        }
+      },
+      "differences": {},
+      "warnings": []
+    }
+  ],
+  "visual_comparisons": [
+    {
+      "similarity_score": 0.9957878396419005,
+      "pixel_diff_percentage": 0.33333333333333337,
+      "passed": true,
+      "details": {
+        "baseline_size": [
+          400,
+          300
+        ],
+        "current_size": [
+          400,
+          300
+        ],
+        "ssim_threshold": 0.95,
+        "pixel_diff_threshold": 1.0
+      }
+    }
+  ]
+}

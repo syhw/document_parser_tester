@@ -1,0 +1,4 @@
+# Default installation: Core dependencies only
+# For other profiles, use requirements-{gpu,academic,full}.txt
+
+-r requirements-core.txt

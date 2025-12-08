@@ -1,0 +1,22 @@
+# Phase 0: Foundation (Required)
+# Core dependencies for CPU-only operation
+
+# Schema & Structured Output
+pydantic>=2.0,<3.0
+instructor>=1.0.0
+
+# Core PDF Processing
+pymupdf>=1.23.0
+pdfplumber>=0.10.0
+
+# Validation
+deepdiff>=6.0.0
+thefuzz[speedup]>=0.22.0
+
+# Basic Tools
+pillow>=10.0.0
+requests>=2.31.0
+python-dotenv>=1.0.0
+
+# Utilities
+pyyaml>=6.0.0

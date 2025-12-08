@@ -1,0 +1,25 @@
+# Full installation with all optional dependencies
+
+-r requirements-core.txt
+-r requirements-gpu.txt
+-r requirements-academic.txt
+
+# Web Rendering
+playwright>=1.40.0
+beautifulsoup4>=4.12.0
+lxml>=4.9.0
+
+# Testing & Validation
+pytest>=7.4.0
+pytest-image-snapshot>=0.1.0
+pytest-benchmark>=4.0.0
+
+# Performance optimization
+rapidfuzz>=3.0.0
+
+# Optional: Lightweight VLM
+# smoldocling  # Add when available
+
+# Development tools
+ipython>=8.18.0
+jupyter>=1.0.0

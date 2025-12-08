@@ -1,0 +1,15 @@
+# Phase 1: GPU-dependent tools
+# Requires CUDA-capable GPU for optimal performance
+
+-r requirements-core.txt
+
+# Chart Analysis (DePlot)
+transformers>=4.35.0
+torch>=2.1.0
+accelerate>=0.25.0
+
+# Layout Analysis (Surya)
+surya-ocr>=0.3.0
+
+# Image processing for visual comparison
+scikit-image>=0.22.0

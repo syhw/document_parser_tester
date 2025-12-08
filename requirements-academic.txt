@@ -1,0 +1,13 @@
+# Phase 2: Academic paper processing
+# Requires Docker for GROBID service
+
+-r requirements-core.txt
+
+# Academic Paper Parsing
+grobid-client-python>=0.8.0
+
+# Alternative: Marker (fallback if no Docker)
+marker-pdf>=0.3.0
+
+# Document partitioning
+unstructured[pdf]>=0.10.0

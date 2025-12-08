@@ -1,0 +1,127 @@
+{
+  "id": "test_document",
+  "format": "pdf",
+  "source": {
+    "url": null,
+    "file_path": "/home/syhw/claude_tester/test_document.pdf",
+    "accessed_at": "2025-12-08T01:16:41.613448"
+  },
+  "category": "other",
+  "metadata": {
+    "title": "Test Document for PDF Parser",
+    "authors": [
+      {
+        "name": "VLM Doc Test",
+        "affiliation": null
+      }
+    ],
+    "date": null,
+    "keywords": [
+      "testing",
+      "pdf"
+    ]
+  },
+  "content": [
+    {
+      "id": "vlm_c1",
+      "type": "heading",
+      "content": "Test Document",
+      "bbox": {
+        "page": 1,
+        "x": 52.0,
+        "y": 48.0,
+        "width": 498.0,
+        "height": 32.0,
+        "confidence": null
+      },
+      "level": 1
+    },
+    {
+      "id": "vlm_c2",
+      "type": "heading",
+      "content": "Introduction",
+      "bbox": {
+        "page": 1,
+        "x": 51.0,
+        "y": 99.0,
+        "width": 499.0,
+        "height": 31.0,
+        "confidence": null
+      },
+      "level": 2
+    },
+    {
+      "id": "vlm_c3",
+      "type": "paragraph",
+      "content": "This is a test document demonstrating PDF parsing capabilities of the vlm_doc_test library.",
+      "bbox": {
+        "page": 1,
+        "x": 50.0,
+        "y": 121.0,
+        "width": 500.0,
+        "height": 58.0,
+        "confidence": null
+      },
+      "level": null
+    },
+    {
+      "id": "vlm_c4",
+      "type": "heading",
+      "content": "Methods",
+      "bbox": {
+        "page": 1,
+        "x": 50.0,
+        "y": 161.0,
+        "width": 500.0,
+        "height": 29.0,
+        "confidence": null
+      },
+      "level": 2
+    },
+    {
+      "id": "vlm_c5",
+      "type": "paragraph",
+      "content": "We use vision-language models for document understanding with a novel approach.",
+      "bbox": {
+        "page": 1,
+        "x": 50.0,
+        "y": 201.0,
+        "width": 500.0,
+        "height": 59.0,
+        "confidence": null
+      },
+      "level": null
+    },
+    {
+      "id": "vlm_c6",
+      "type": "heading",
+      "content": "Results",
+      "bbox": {
+        "page": 2,
+        "x": 50.0,
+        "y": 50.0,
+        "width": 500.0,
+        "height": 30.0,
+        "confidence": null
+      },
+      "level": 2
+    },
+    {
+      "id": "vlm_c7",
+      "type": "paragraph",
+      "content": "The parser successfully extracts content with bounding box information.",
+      "bbox": {
+        "page": 2,
+        "x": 50.0,
+        "y": 70.0,
+        "width": 500.0,
+        "height": 60.0,
+        "confidence": null
+      },
+      "level": null
+    }
+  ],
+  "figures": [],
+  "tables": [],
+  "links": []
+}
