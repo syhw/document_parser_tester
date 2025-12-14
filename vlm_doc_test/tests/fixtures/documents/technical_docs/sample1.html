@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>PDFParser API Reference</title>
+</head>
+<body>
+    <div class="docs-container">
+        <nav class="sidebar">
+            <ul>
+                <li><a href="#overview">Overview</a></li>
+                <li><a href="#installation">Installation</a></li>
+                <li><a href="#quickstart">Quick Start</a></li>
+                <li><a href="#api">API Reference</a></li>
+                <li><a href="#examples">Examples</a></li>
+            </ul>
+        </nav>
+
+        <main class="content">
+            <h1 id="overview">PDFParser API Reference</h1>
+
+            <p>
+                PDFParser is a Python library for extracting structured content from PDF documents.
+                It provides a simple, intuitive API for parsing PDFs into machine-readable formats.
+            </p>
+
+            <div class="version-info">
+                <strong>Version:</strong> 1.0.0<br>
+                <strong>Last Updated:</strong> 2025-01-15
+            </div>
+
+            <h2 id="installation">Installation</h2>
+
+            <p>Install via pip:</p>
+
+            <pre><code class="language-bash">pip install pdfparser
+</code></pre>
+
+            <p>Or install from source:</p>
+
+            <pre><code class="language-bash">git clone https://github.com/example/pdfparser.git
+cd pdfparser
+pip install -e .
+</code></pre>
+
+            <h2 id="quickstart">Quick Start</h2>
+
+            <p>Here's a simple example to get you started:</p>
+
+            <pre><code class="language-python">from pdfparser import PDFParser
+
+# Initialize parser
+parser = PDFParser()
+
+# Parse a PDF file
+document = parser.parse("document.pdf")
+
+# Access extracted content
+print(f"Title: {document.metadata.title}")
+print(f"Pages: {document.page_count}")
+print(f"Tables: {len(document.tables)}")
+</code></pre>
+
+            <h2 id="api">API Reference</h2>
+
+            <h3>PDFParser</h3>
+
+            <p>The main class for PDF parsing.</p>
+
+            <h4>Constructor</h4>
+
+            <pre><code class="language-python">PDFParser(config: Optional[PDFConfig] = None)
+</code></pre>
+
+            <p><strong>Parameters:</strong></p>
+            <ul>
+                <li><code>config</code> (PDFConfig, optional) - Configuration options for parsing</li>
+            </ul>
+
+            <h4>Methods</h4>
+
+            <h5>parse()</h5>
+
+            <pre><code class="language-python">parse(
+    pdf_path: Union[str, Path],
+    category: Optional[DocumentCategory] = None
+) -> SimpleDocument
+</code></pre>
+
+            <p>Parse a PDF file and extract structured content.</p>
+
+            <p><strong>Parameters:</strong></p>
+            <ul>
+                <li><code>pdf_path</code> (str or Path) - Path to PDF file</li>
+                <li><code>category</code> (DocumentCategory, optional) - Document category hint</li>
+            </ul>
+
+            <p><strong>Returns:</strong></p>
+            <ul>
+                <li><code>SimpleDocument</code> - Parsed document with extracted content</li>
+            </ul>
+
+            <p><strong>Raises:</strong></p>
+            <ul>
+                <li><code>FileNotFoundError</code> - If PDF file doesn't exist</li>
+                <li><code>PDFParseError</code> - If parsing fails</li>
+            </ul>
+
+            <p><strong>Example:</strong></p>
+
+            <pre><code class="language-python">from pathlib import Path
+from pdfparser import PDFParser, DocumentCategory
+
+parser = PDFParser()
+doc = parser.parse(
+    Path("paper.pdf"),
+    category=DocumentCategory.ACADEMIC_PAPER
+)
+
+print(doc.metadata.title)
+for table in doc.tables:
+    print(table.data)
+</code></pre>
+
+            <div class="note">
+                <strong>Note:</strong> The category parameter helps optimize extraction for
+                specific document types. If not provided, the parser will attempt to auto-detect.
+            </div>
+
+            <h5>parse_batch()</h5>
+
+            <pre><code class="language-python">parse_batch(
+    pdf_paths: List[Path],
+    max_workers: int = 4
+) -> List[SimpleDocument]
+</code></pre>
+
+            <p>Parse multiple PDF files in parallel.</p>
+
+            <p><strong>Parameters:</strong></p>
+            <ul>
+                <li><code>pdf_paths</code> (List[Path]) - List of PDF file paths</li>
+                <li><code>max_workers</code> (int) - Maximum number of parallel workers</li>
+            </ul>
+
+            <p><strong>Returns:</strong></p>
+            <ul>
+                <li><code>List[SimpleDocument]</code> - List of parsed documents</li>
+            </ul>
+
+            <h3>SimpleDocument</h3>
+
+            <p>Represents a parsed document with extracted content.</p>
+
+            <h4>Attributes</h4>
+
+            <ul>
+                <li><code>id</code> (str) - Unique document identifier</li>
+                <li><code>format</code> (DocumentFormat) - Source format (PDF, HTML, etc.)</li>
+                <li><code>metadata</code> (DocumentMetadata) - Title, authors, dates, etc.</li>
+                <li><code>content</code> (List[ContentElement]) - Main content elements</li>
+                <li><code>tables</code> (List[TableElement]) - Extracted tables</li>
+                <li><code>figures</code> (List[FigureElement]) - Extracted figures</li>
+                <li><code>links</code> (List[LinkElement]) - Extracted links</li>
+            </ul>
+
+            <h2 id="examples">Examples</h2>
+
+            <h3>Extract Tables</h3>
+
+            <pre><code class="language-python">from pdfparser import PDFParser
+
+parser = PDFParser()
+doc = parser.parse("report.pdf")
+
+for table in doc.tables:
+    print(f"Table {table.id}:")
+    print(f"  Caption: {table.caption}")
+    print(f"  Rows: {len(table.data)}")
+    print(f"  Columns: {len(table.data[0]) if table.data else 0}")
+</code></pre>
+
+            <h3>Extract Figures</h3>
+
+            <pre><code class="language-python">import matplotlib.pyplot as plt
+from pdfparser import PDFParser
+
+parser = PDFParser()
+doc = parser.parse("paper.pdf")
+
+for i, figure in enumerate(doc.figures):
+    print(f"Figure {i+1}: {figure.caption}")
+
+    # Save figure image
+    if figure.image_data:
+        with open(f"figure_{i+1}.png", "wb") as f:
+            f.write(figure.image_data)
+</code></pre>
+
+            <h3>Custom Configuration</h3>
+
+            <pre><code class="language-python">from pdfparser import PDFParser, PDFConfig
+
+config = PDFConfig(
+    extract_images=True,
+    extract_tables=True,
+    dpi=300,
+    language="en"
+)
+
+parser = PDFParser(config=config)
+doc = parser.parse("document.pdf")
+</code></pre>
+
+            <div class="warning">
+                <strong>Warning:</strong> High DPI settings (>300) may significantly increase
+                processing time and memory usage for large documents.
+            </div>
+
+            <h2>See Also</h2>
+
+            <ul>
+                <li><a href="/docs/configuration">Configuration Guide</a></li>
+                <li><a href="/docs/advanced">Advanced Usage</a></li>
+                <li><a href="/docs/troubleshooting">Troubleshooting</a></li>
+                <li><a href="https://github.com/example/pdfparser">GitHub Repository</a></li>
+            </ul>
+        </main>
+    </div>
+</body>
+</html>

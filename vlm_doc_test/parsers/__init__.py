@@ -7,8 +7,17 @@ document formats (PDF, HTML, images, etc.) and converting them to our schemas.
 
 from .pdf_parser import PDFParser
 from .html_parser import HTMLParser
+from .table_extractor import TableExtractor, TableSettings
+from .marker_parser import MarkerParser, MarkerConfig
+from .docling_parser import DoclingParser, DoclingConfig
 
 __all__ = [
     "PDFParser",
     "HTMLParser",
+    "TableExtractor",
+    "TableSettings",
+    "MarkerParser",
+    "MarkerConfig",
+    "DoclingParser",
+    "DoclingConfig",
 ]
