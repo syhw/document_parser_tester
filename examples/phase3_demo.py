@@ -259,7 +259,7 @@ def demo_performance_insights():
     print("  • For speed: Use PyMuPDF")
     print("  • For accuracy: Use Marker-PDF or Docling")
     print("  • For local processing: Use Docling + Granite Vision")
-    print("  • For API-based VLM: Use GLM-4.5V (Phase 0)")
+    print("  • For API-based VLM: Use GLM-4.6V (Phase 0)")
 
     print("\n✓ Performance insights complete!")
 

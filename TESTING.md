@@ -500,7 +500,7 @@ jobs:
 - [ ] Large document testing (100+ page PDFs)
 - [ ] Real-time rendering tests (animations, videos)
 - [ ] Accessibility testing (screen reader compatibility)
-- [ ] Cross-VLM comparison (GLM-4.5V vs. GPT-4V vs. Claude 3.5)
+- [ ] Cross-VLM comparison (GLM-4.6V vs. GPT-4V vs. Claude 3.5)
 
 ## Version History
 

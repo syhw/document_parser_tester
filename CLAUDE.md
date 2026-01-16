@@ -30,7 +30,7 @@ cp .env.example .env
 ```
 
 The system supports:
-- **GLM-4.5V** (Zhipu AI) - Primary VLM provider
+- **GLM-4.6V** (Zhipu AI) - Primary VLM provider
 - **OpenAI-compatible APIs** - Alternative via OPENAI_API_KEY
 
 Configuration is loaded via `vlm_doc_test/config.py` using python-dotenv.

@@ -1085,7 +1085,7 @@ class VLMPrompt(BaseModel):
 
 class VLMInfo(BaseModel):
     """Information about VLM extraction."""
-    model: str  # e.g., "glm-4.5v"
+    model: str  # e.g., "glm-4.6v"
     provider: Optional[str] = None
 
     # API details
@@ -1436,7 +1436,7 @@ JSON Schema definitions for validation:
   "extraction": {
     "method": "vlm",
     "vlm": {
-      "model": "glm-4.5v",
+      "model": "glm-4.6v",
       "provider": "z.ai",
       "prompts": [
         {

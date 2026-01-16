@@ -20,7 +20,7 @@ class VLMConfig:
 
     def __init__(self):
         """Initialize configuration from environment variables."""
-        # GLM-4.5V API configuration
+        # GLM-4.6V API configuration
         self.glm_api_key: Optional[str] = os.getenv("GLM_API_KEY")
         self.glm_api_base: str = os.getenv(
             "GLM_API_BASE",

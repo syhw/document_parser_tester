@@ -52,7 +52,7 @@ class PDFPipelineComparison:
     2. pdfplumber - Table-focused
     3. Marker-PDF - High-fidelity markdown
     4. Docling+Granite Vision - Local VLM
-    5. GLM-4.5V API - Remote VLM (optional)
+    5. GLM-4.6V API - Remote VLM (optional)
     """
 
     def __init__(self):

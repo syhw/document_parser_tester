@@ -280,7 +280,7 @@ python examples/phase3_demo.py
 | PyMuPDF | ~0.01s | 100x (baseline) | No |
 | Marker-PDF | ~1.0s | 1x | Yes |
 | Docling+VLM | ~2.0s | 0.5x | Yes |
-| GLM-4.5V API | ~3-5s | 0.2x | Cloud |
+| GLM-4.6V API | ~3-5s | 0.2x | Cloud |
 
 ### Accuracy Comparison
 
@@ -289,7 +289,7 @@ python examples/phase3_demo.py
 | PyMuPDF | Good | Basic | None | Basic | No |
 | Marker-PDF | Excellent | Excellent | Yes | Excellent | No |
 | Docling+VLM | Excellent | Good | Excellent | Good | Yes |
-| GLM-4.5V API | Excellent | Excellent | Excellent | Excellent | Yes |
+| GLM-4.6V API | Excellent | Excellent | Excellent | Excellent | Yes |
 
 ### Use Case Recommendations
 
@@ -311,7 +311,7 @@ python examples/phase3_demo.py
 - Privacy requirements (on-device)
 - Have GPU available
 
-**Choose GLM-4.5V API when:**
+**Choose GLM-4.6V API when:**
 - Need best accuracy
 - Complex semantic understanding
 - API access acceptable

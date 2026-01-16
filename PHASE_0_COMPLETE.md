@@ -69,7 +69,7 @@ Key Methods:
 
 Features:
 - **Instructor integration**: Validates VLM output against Pydantic schemas
-- **OpenAI-compatible API**: Works with GLM-4.5V and similar APIs
+- **OpenAI-compatible API**: Works with GLM-4.6V and similar APIs
 - **Image encoding**: Supports file paths and PIL Images
 - **Structured prompts**: Detailed extraction instructions
 - **Configuration management**: Uses environment variables
@@ -117,7 +117,7 @@ Features:
 
 **File**: `.env.example`
 - Template for API configuration
-- GLM-4.5V settings
+- GLM-4.6V settings
 - OpenAI fallback configuration
 
 ### 7. Dependencies ✅

@@ -10,6 +10,7 @@ from .html_parser import HTMLParser
 from .table_extractor import TableExtractor, TableSettings
 from .marker_parser import MarkerParser, MarkerConfig
 from .docling_parser import DoclingParser, DoclingConfig
+from .vlm_parser import VLMParser, VLMParserWithMCP, create_vlm_parser
 
 __all__ = [
     "PDFParser",
@@ -20,4 +21,7 @@ __all__ = [
     "MarkerConfig",
     "DoclingParser",
     "DoclingConfig",
+    "VLMParser",
+    "VLMParserWithMCP",
+    "create_vlm_parser",
 ]
