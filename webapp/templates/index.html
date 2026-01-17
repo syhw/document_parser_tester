@@ -1,0 +1,1135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PDF Parsing Comparison - VLM vs Tool</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #1a1a2e;
+            color: #eee;
+            min-height: 100vh;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #16213e, #1a1a2e);
+            padding: 20px;
+            text-align: center;
+            border-bottom: 1px solid #333;
+        }
+
+        .header h1 {
+            font-size: 24px;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            color: #888;
+            font-size: 14px;
+        }
+
+        .controls {
+            background: #16213e;
+            padding: 15px 20px;
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            flex-wrap: wrap;
+            border-bottom: 1px solid #333;
+        }
+
+        .controls select, .controls input, .controls button {
+            padding: 10px 15px;
+            border-radius: 6px;
+            border: 1px solid #444;
+            background: #252545;
+            color: #fff;
+            font-size: 14px;
+        }
+
+        .controls button {
+            background: linear-gradient(135deg, #e94560, #c73659);
+            border: none;
+            cursor: pointer;
+            font-weight: 600;
+            transition: transform 0.2s;
+        }
+
+        .controls button:hover {
+            transform: scale(1.02);
+        }
+
+        .controls button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .nav-btn {
+            padding: 8px 12px;
+            background: #252545;
+            border: 1px solid #444;
+            color: #fff;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background 0.2s;
+        }
+
+        .nav-btn:hover:not(:disabled) {
+            background: #353565;
+        }
+
+        .nav-btn:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+
+        #pageInput {
+            background: #252545;
+            border: 1px solid #444;
+            color: #fff;
+            border-radius: 4px;
+            text-align: center;
+        }
+
+        .toggle-group {
+            display: flex;
+            gap: 10px;
+        }
+
+        .toggle-btn {
+            padding: 8px 16px;
+            border-radius: 20px;
+            border: 2px solid;
+            background: transparent;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+
+        .toggle-btn.vlm {
+            border-color: #e94560;
+            color: #e94560;
+        }
+
+        .toggle-btn.vlm.active {
+            background: #e94560;
+            color: white;
+        }
+
+        .toggle-btn.tool {
+            border-color: #4ade80;
+            color: #4ade80;
+        }
+
+        .toggle-btn.tool.active {
+            background: #4ade80;
+            color: #1a1a2e;
+        }
+
+        .main-container {
+            display: grid;
+            grid-template-columns: 250px 1fr 250px;
+            gap: 0;
+            height: calc(100vh - 180px);
+        }
+
+        .sidebar {
+            background: #16213e;
+            overflow-y: auto;
+            border-right: 1px solid #333;
+        }
+
+        .sidebar.right {
+            border-right: none;
+            border-left: 1px solid #333;
+        }
+
+        .sidebar-header {
+            padding: 15px;
+            font-weight: 600;
+            font-size: 14px;
+            border-bottom: 1px solid #333;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .sidebar-header .dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+        }
+
+        .sidebar-header .dot.red { background: #e94560; }
+        .sidebar-header .dot.green { background: #4ade80; }
+
+        .element-list {
+            padding: 10px;
+        }
+
+        .element-item {
+            padding: 10px;
+            margin-bottom: 8px;
+            border-radius: 6px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .element-item.vlm {
+            background: rgba(233, 69, 96, 0.15);
+            border-left: 3px solid #e94560;
+        }
+
+        .element-item.vlm:hover {
+            background: rgba(233, 69, 96, 0.25);
+        }
+
+        .element-item.tool {
+            background: rgba(74, 222, 128, 0.15);
+            border-left: 3px solid #4ade80;
+        }
+
+        .element-item.tool:hover {
+            background: rgba(74, 222, 128, 0.25);
+        }
+
+        .element-item.highlighted {
+            box-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
+        }
+
+        .element-item.selected {
+            box-shadow: 0 0 15px rgba(255, 255, 255, 0.5);
+            transform: scale(1.02);
+            border-width: 4px;
+        }
+
+        .element-item.vlm.selected {
+            background: rgba(233, 69, 96, 0.4);
+        }
+
+        .element-item.tool.selected {
+            background: rgba(74, 222, 128, 0.4);
+        }
+
+        .element-type {
+            font-weight: 600;
+            text-transform: uppercase;
+            font-size: 10px;
+            margin-bottom: 4px;
+            color: #888;
+        }
+
+        .element-content {
+            line-height: 1.4;
+            color: #ccc;
+        }
+
+        .pdf-viewer {
+            position: relative;
+            overflow: auto;
+            background: #0f0f1a;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            padding: 20px;
+        }
+
+        .pdf-container {
+            position: relative;
+            display: inline-block;
+        }
+
+        .pdf-image {
+            max-width: 100%;
+            display: block;
+        }
+
+        .bbox-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            pointer-events: none;
+        }
+
+        .bbox {
+            position: absolute;
+            border: 2px solid;
+            pointer-events: auto;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .bbox.vlm {
+            border-color: rgba(233, 69, 96, 0.8);
+            background: rgba(233, 69, 96, 0.1);
+        }
+
+        .bbox.vlm:hover, .bbox.vlm.highlighted {
+            background: rgba(233, 69, 96, 0.3);
+            z-index: 10;
+        }
+
+        .bbox.tool {
+            border-color: rgba(74, 222, 128, 0.8);
+            background: rgba(74, 222, 128, 0.1);
+        }
+
+        .bbox.tool:hover, .bbox.tool.highlighted {
+            background: rgba(74, 222, 128, 0.3);
+            z-index: 10;
+        }
+
+        .bbox-label {
+            position: absolute;
+            top: -18px;
+            left: 0;
+            font-size: 10px;
+            padding: 2px 6px;
+            border-radius: 3px;
+            white-space: nowrap;
+        }
+
+        .bbox.vlm .bbox-label {
+            background: #e94560;
+            color: white;
+        }
+
+        .bbox.tool .bbox-label {
+            background: #4ade80;
+            color: #1a1a2e;
+        }
+
+        .comparison-panel {
+            background: #16213e;
+            border-top: 1px solid #333;
+            padding: 20px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .comparison-tabs {
+            display: flex;
+            gap: 5px;
+            margin-bottom: 15px;
+        }
+
+        .comparison-tab {
+            padding: 8px 16px;
+            border-radius: 6px;
+            border: none;
+            background: #252545;
+            color: #888;
+            cursor: pointer;
+            font-size: 13px;
+            transition: all 0.2s;
+        }
+
+        .comparison-tab.active {
+            background: #e94560;
+            color: white;
+        }
+
+        .comparison-content {
+            display: none;
+        }
+
+        .comparison-content.active {
+            display: block;
+        }
+
+        .comparison-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+        }
+
+        .comparison-card {
+            background: #252545;
+            border-radius: 8px;
+            padding: 15px;
+        }
+
+        .comparison-card h4 {
+            font-size: 13px;
+            margin-bottom: 10px;
+            color: #888;
+            text-transform: uppercase;
+        }
+
+        .comparison-card ul {
+            list-style: none;
+            font-size: 13px;
+        }
+
+        .comparison-card li {
+            padding: 5px 0;
+            border-bottom: 1px solid #333;
+        }
+
+        .comparison-card li:last-child {
+            border-bottom: none;
+        }
+
+        .stat-value {
+            font-size: 24px;
+            font-weight: 700;
+            color: #e94560;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: #666;
+        }
+
+        .loading {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.8);
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+        }
+
+        .loading.active {
+            display: flex;
+        }
+
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 4px solid #333;
+            border-top-color: #e94560;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+
+        .json-view {
+            background: #0f0f1a;
+            border-radius: 6px;
+            padding: 15px;
+            font-family: 'Monaco', 'Consolas', monospace;
+            font-size: 12px;
+            overflow-x: auto;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .json-key { color: #e94560; }
+        .json-string { color: #4ade80; }
+        .json-number { color: #60a5fa; }
+
+        /* Scrollbar styling */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #1a1a2e;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #444;
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🔍 PDF Parsing Comparison</h1>
+        <p>VLM-based (Red) vs Tool-based (Green) Document Analysis</p>
+    </div>
+
+    <div class="controls">
+        <select id="pdfSelect">
+            <option value="">Select a PDF file...</option>
+        </select>
+        <input type="text" id="pdfPath" placeholder="Or enter PDF path..." style="width: 300px;">
+        <select id="categorySelect">
+            <option value="academic_paper">Academic Paper</option>
+            <option value="blog_post">Blog Post</option>
+            <option value="technical_documentation">Technical Docs</option>
+            <option value="report">Report</option>
+            <option value="news_article">News Article</option>
+        </select>
+        <button id="parseBtn" onclick="parsePDF()">🚀 Parse PDF</button>
+
+        <div class="page-nav" id="pageNav" style="display: none; align-items: center; gap: 8px; margin-left: 20px;">
+            <button class="nav-btn" id="prevBtn" onclick="changePage(-1)" title="Previous page (←)">◀</button>
+            <span id="pageIndicator" style="min-width: 100px; text-align: center;">Page 1 / 1</span>
+            <button class="nav-btn" id="nextBtn" onclick="changePage(1)" title="Next page (→)">▶</button>
+            <input type="number" id="pageInput" min="1" value="1" style="width: 60px;" title="Jump to page">
+            <button class="nav-btn" onclick="jumpToPage()">Go</button>
+        </div>
+
+        <div class="toggle-group" style="margin-left: auto;">
+            <button class="toggle-btn vlm active" onclick="toggleLayer('vlm')">
+                🔴 VLM Boxes
+            </button>
+            <button class="toggle-btn tool active" onclick="toggleLayer('tool')">
+                🟢 Tool Boxes
+            </button>
+        </div>
+    </div>
+
+    <div class="main-container">
+        <!-- Left Sidebar: VLM Results -->
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <span class="dot red"></span>
+                VLM Parsing (GLM-4.6V)
+            </div>
+            <div class="element-list" id="vlmElements">
+                <div class="empty-state">
+                    <p>Parse a PDF to see VLM results</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Center: PDF Viewer -->
+        <div class="pdf-viewer" id="pdfViewer">
+            <div class="pdf-container" id="pdfContainer">
+                <div class="empty-state" id="emptyState">
+                    <p style="font-size: 48px; margin-bottom: 20px;">📄</p>
+                    <p>Select or enter a PDF path to begin</p>
+                </div>
+                <img id="pdfImage" class="pdf-image" style="display: none;">
+                <svg id="bboxOverlay" class="bbox-overlay"></svg>
+            </div>
+        </div>
+
+        <!-- Right Sidebar: Tool Results -->
+        <div class="sidebar right">
+            <div class="sidebar-header">
+                <span class="dot green"></span>
+                Tool Parsing (PyMuPDF)
+            </div>
+            <div class="element-list" id="toolElements">
+                <div class="empty-state">
+                    <p>Parse a PDF to see Tool results</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Comparison Panel -->
+    <div class="comparison-panel">
+        <div class="comparison-tabs">
+            <button class="comparison-tab active" onclick="showComparison('summary')">Summary</button>
+            <button class="comparison-tab" onclick="showComparison('vlm-only')">VLM Only</button>
+            <button class="comparison-tab" onclick="showComparison('tool-only')">Tool Only</button>
+            <button class="comparison-tab" onclick="showComparison('difference')">Difference (∪ - ∩)</button>
+            <button class="comparison-tab" onclick="showComparison('json')">Raw JSON</button>
+        </div>
+
+        <div id="comparison-summary" class="comparison-content active">
+            <div class="comparison-grid" id="summaryGrid">
+                <div class="comparison-card">
+                    <h4>Parse a PDF to see comparison</h4>
+                </div>
+            </div>
+        </div>
+
+        <div id="comparison-vlm-only" class="comparison-content">
+            <div id="vlmOnlyContent"></div>
+        </div>
+
+        <div id="comparison-tool-only" class="comparison-content">
+            <div id="toolOnlyContent"></div>
+        </div>
+
+        <div id="comparison-difference" class="comparison-content">
+            <div id="differenceContent"></div>
+        </div>
+
+        <div id="comparison-json" class="comparison-content">
+            <div class="comparison-grid">
+                <div class="comparison-card">
+                    <h4>VLM Result</h4>
+                    <div class="json-view" id="vlmJson"></div>
+                </div>
+                <div class="comparison-card">
+                    <h4>Tool Result</h4>
+                    <div class="json-view" id="toolJson"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="loading" id="loading">
+        <div class="spinner"></div>
+    </div>
+
+    <script>
+        // ============================================================
+        // State Management
+        // ============================================================
+        let currentData = null;      // Current API response data
+        let showVLM = true;          // Toggle VLM bounding boxes visibility
+        let showTool = true;         // Toggle Tool bounding boxes visibility
+        let scale = 1;               // Display scale factor (image pixels -> screen pixels)
+        let currentPage = 0;         // Current page number (0-indexed)
+        let totalPages = 1;          // Total pages in current PDF
+        let currentPdfPath = null;   // Path to currently loaded PDF
+
+        // ============================================================
+        // Initialization
+        // ============================================================
+
+        // Load PDF list on startup
+        async function loadPDFList() {
+            try {
+                const res = await fetch('/api/list_pdfs');
+                const data = await res.json();
+                const select = document.getElementById('pdfSelect');
+
+                data.pdfs.forEach(pdf => {
+                    const option = document.createElement('option');
+                    option.value = pdf.path;
+                    option.textContent = `${pdf.name} (${(pdf.size / 1024).toFixed(1)} KB)`;
+                    select.appendChild(option);
+                });
+            } catch (e) {
+                console.error('Failed to load PDF list:', e);
+            }
+        }
+
+        // Parse PDF
+        async function parsePDF(page = 0) {
+            const selectPath = document.getElementById('pdfSelect').value;
+            const inputPath = document.getElementById('pdfPath').value;
+            const pdfPath = inputPath || selectPath;
+
+            if (!pdfPath) {
+                alert('Please select or enter a PDF path');
+                return;
+            }
+
+            // Reset page if it's a new PDF
+            if (pdfPath !== currentPdfPath) {
+                currentPage = 0;
+                page = 0;
+            }
+            currentPdfPath = pdfPath;
+
+            const category = document.getElementById('categorySelect').value;
+
+            document.getElementById('loading').classList.add('active');
+            document.getElementById('parseBtn').disabled = true;
+            disablePageNav(true);
+
+            try {
+                const res = await fetch('/api/parse', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ pdf_path: pdfPath, category, page: page })
+                });
+
+                const data = await res.json();
+
+                if (data.error) {
+                    alert(`Error: ${data.error}`);
+                    return;
+                }
+
+                currentData = data;
+                currentPage = page;
+                totalPages = data.pdf_info.page_count;
+                renderResults(data);
+                updatePageControls();
+
+            } catch (e) {
+                alert(`Failed to parse: ${e.message}`);
+            } finally {
+                document.getElementById('loading').classList.remove('active');
+                document.getElementById('parseBtn').disabled = false;
+                disablePageNav(false);
+            }
+        }
+
+        // ============================================================
+        // Page Navigation
+        // ============================================================
+
+        // Change page by delta (-1 for prev, +1 for next)
+        function changePage(delta) {
+            const newPage = currentPage + delta;
+            if (newPage >= 0 && newPage < totalPages) {
+                parsePDF(newPage);
+            }
+        }
+
+        // Jump to specific page
+        function jumpToPage() {
+            const input = document.getElementById('pageInput');
+            const pageNum = parseInt(input.value) - 1; // Convert to 0-indexed
+            if (pageNum >= 0 && pageNum < totalPages) {
+                parsePDF(pageNum);
+            } else {
+                alert(`Please enter a page between 1 and ${totalPages}`);
+            }
+        }
+
+        // Update page navigation controls
+        function updatePageControls() {
+            const pageNav = document.getElementById('pageNav');
+            const prevBtn = document.getElementById('prevBtn');
+            const nextBtn = document.getElementById('nextBtn');
+            const pageIndicator = document.getElementById('pageIndicator');
+            const pageInput = document.getElementById('pageInput');
+
+            pageNav.style.display = 'flex';
+            pageIndicator.textContent = `Page ${currentPage + 1} / ${totalPages}`;
+            pageInput.value = currentPage + 1;
+            pageInput.max = totalPages;
+
+            prevBtn.disabled = currentPage === 0;
+            nextBtn.disabled = currentPage >= totalPages - 1;
+        }
+
+        // Disable/enable page navigation
+        function disablePageNav(disabled) {
+            document.getElementById('prevBtn').disabled = disabled;
+            document.getElementById('nextBtn').disabled = disabled;
+            document.getElementById('pageInput').disabled = disabled;
+        }
+
+        // ============================================================
+        // Rendering Functions
+        // ============================================================
+
+        // Render all results from API response
+        function renderResults(data) {
+            // Show PDF image
+            const img = document.getElementById('pdfImage');
+            img.src = data.image.data;
+            img.style.display = 'block';
+            document.getElementById('emptyState').style.display = 'none';
+
+            // Calculate scale
+            img.onload = () => {
+                scale = img.clientWidth / data.image.width;
+                renderBboxes(data);
+            };
+
+            // Render element lists
+            renderElementList('vlmElements', data.vlm.bboxes, 'vlm');
+            renderElementList('toolElements', data.tool.bboxes, 'tool');
+
+            // Render comparison
+            renderComparison(data);
+        }
+
+        // Render bounding boxes
+        function renderBboxes(data) {
+            const overlay = document.getElementById('bboxOverlay');
+            const img = document.getElementById('pdfImage');
+
+            overlay.style.width = img.clientWidth + 'px';
+            overlay.style.height = img.clientHeight + 'px';
+
+            let html = '';
+
+            // VLM boxes (red)
+            if (showVLM) {
+                data.vlm.bboxes.forEach((elem, i) => {
+                    const x = elem.bbox.x * scale;
+                    const y = elem.bbox.y * scale;
+                    const w = elem.bbox.width * scale;
+                    const h = elem.bbox.height * scale;
+
+                    html += `
+                        <rect class="bbox vlm" id="bbox-vlm-${i}"
+                              x="${x}" y="${y}" width="${w}" height="${h}"
+                              fill="rgba(233, 69, 96, 0.1)" stroke="#e94560" stroke-width="2"
+                              onmouseover="highlightElement('vlm', ${i})"
+                              onmouseout="unhighlightElement('vlm', ${i})"
+                              onclick="selectElement('vlm', ${i})"
+                              style="cursor: pointer;"/>
+                    `;
+                });
+            }
+
+            // Tool boxes (green)
+            if (showTool) {
+                data.tool.bboxes.forEach((elem, i) => {
+                    const x = elem.bbox.x * scale;
+                    const y = elem.bbox.y * scale;
+                    const w = elem.bbox.width * scale;
+                    const h = elem.bbox.height * scale;
+
+                    html += `
+                        <rect class="bbox tool" id="bbox-tool-${i}"
+                              x="${x}" y="${y}" width="${w}" height="${h}"
+                              fill="rgba(74, 222, 128, 0.1)" stroke="#4ade80" stroke-width="2"
+                              onmouseover="highlightElement('tool', ${i})"
+                              onmouseout="unhighlightElement('tool', ${i})"
+                              onclick="selectElement('tool', ${i})"
+                              style="cursor: pointer;"/>
+                    `;
+                });
+            }
+
+            overlay.innerHTML = html;
+        }
+
+        // Render element list
+        function renderElementList(containerId, elements, type) {
+            const container = document.getElementById(containerId);
+
+            if (!elements || elements.length === 0) {
+                container.innerHTML = '<div class="empty-state">No elements found</div>';
+                return;
+            }
+
+            let html = '';
+            elements.forEach((elem, i) => {
+                html += `
+                    <div class="element-item ${type}" id="elem-${type}-${i}"
+                         onmouseover="highlightBbox('${type}', ${i})"
+                         onmouseout="unhighlightBbox('${type}', ${i})"
+                         onclick="selectFromSidebar('${type}', ${i})">
+                        <div class="element-type">${elem.type}</div>
+                        <div class="element-content">${escapeHtml(elem.content)}</div>
+                    </div>
+                `;
+            });
+
+            container.innerHTML = html;
+        }
+
+        // Select from sidebar - highlights bbox and scrolls PDF viewer to show it
+        function selectFromSidebar(type, index) {
+            // Clear previous selection
+            if (selectedType !== null && selectedIndex !== null) {
+                const prevBbox = document.getElementById(`bbox-${selectedType}-${selectedIndex}`);
+                const prevElem = document.getElementById(`elem-${selectedType}-${selectedIndex}`);
+                if (prevBbox) {
+                    prevBbox.classList.remove('selected');
+                    prevBbox.style.fill = selectedType === 'vlm' ? 'rgba(233, 69, 96, 0.1)' : 'rgba(74, 222, 128, 0.1)';
+                    prevBbox.style.strokeWidth = '2';
+                }
+                if (prevElem) {
+                    prevElem.classList.remove('selected');
+                }
+            }
+
+            // Set new selection
+            selectedType = type;
+            selectedIndex = index;
+
+            // Highlight sidebar element
+            const elem = document.getElementById(`elem-${type}-${index}`);
+            if (elem) {
+                elem.classList.add('selected');
+            }
+
+            // Highlight and scroll to bbox in PDF viewer
+            const bbox = document.getElementById(`bbox-${type}-${index}`);
+            if (bbox) {
+                bbox.classList.add('selected');
+                bbox.style.fill = type === 'vlm' ? 'rgba(233, 69, 96, 0.5)' : 'rgba(74, 222, 128, 0.5)';
+                bbox.style.strokeWidth = '4';
+
+                // Scroll the PDF viewer to show the bbox
+                const pdfViewer = document.getElementById('pdfViewer');
+                const bboxRect = bbox.getBoundingClientRect();
+                const viewerRect = pdfViewer.getBoundingClientRect();
+
+                // Calculate scroll position to center the bbox
+                const scrollTop = pdfViewer.scrollTop + (bboxRect.top - viewerRect.top) - (viewerRect.height / 2) + (bboxRect.height / 2);
+                pdfViewer.scrollTo({ top: Math.max(0, scrollTop), behavior: 'smooth' });
+            }
+        }
+
+        // Render comparison
+        function renderComparison(data) {
+            const comp = data.comparison;
+
+            // Summary
+            document.getElementById('summaryGrid').innerHTML = `
+                <div class="comparison-card">
+                    <h4>VLM Extraction</h4>
+                    <div class="stat-value">${data.vlm.result.content_count}</div>
+                    <div class="stat-label">Content Elements</div>
+                    <ul style="margin-top: 10px;">
+                        <li>Figures: ${data.vlm.result.figures_count}</li>
+                        <li>Tables: ${data.vlm.result.tables_count}</li>
+                        <li>Authors: ${data.vlm.result.authors?.length || 0}</li>
+                    </ul>
+                </div>
+                <div class="comparison-card">
+                    <h4>Tool Extraction</h4>
+                    <div class="stat-value" style="color: #4ade80;">${data.tool.result.content_count}</div>
+                    <div class="stat-label">Content Elements</div>
+                    <ul style="margin-top: 10px;">
+                        <li>Figures: ${data.tool.result.figures_count}</li>
+                        <li>Tables: ${data.tool.result.tables_count}</li>
+                        <li>Authors: ${data.tool.result.authors?.length || 0}</li>
+                    </ul>
+                </div>
+                <div class="comparison-card">
+                    <h4>Agreement</h4>
+                    <div class="stat-value" style="color: #60a5fa;">${comp.intersection.title_match ? '✓' : '✗'}</div>
+                    <div class="stat-label">Title Match</div>
+                    <ul style="margin-top: 10px;">
+                        <li>Author Overlap: ${comp.intersection.author_overlap}</li>
+                        <li>Common Types: ${comp.intersection.content_types.join(', ') || 'None'}</li>
+                    </ul>
+                </div>
+            `;
+
+            // VLM Only
+            document.getElementById('vlmOnlyContent').innerHTML = `
+                <div class="comparison-grid">
+                    <div class="comparison-card">
+                        <h4>Unique to VLM</h4>
+                        <ul>
+                            <li>Has Abstract: ${comp.vlm_only.has_abstract ? 'Yes ✓' : 'No'}</li>
+                            <li>Unique Types: ${comp.vlm_only.content_types.join(', ') || 'None'}</li>
+                            <li>Unique Keywords: ${comp.vlm_only.keywords.join(', ') || 'None'}</li>
+                        </ul>
+                    </div>
+                </div>
+            `;
+
+            // Tool Only
+            document.getElementById('toolOnlyContent').innerHTML = `
+                <div class="comparison-grid">
+                    <div class="comparison-card">
+                        <h4>Unique to Tool</h4>
+                        <ul>
+                            <li>Extra Content: +${comp.tool_only.extra_content_count} elements</li>
+                            <li>Extra Tables: +${comp.tool_only.extra_tables}</li>
+                            <li>Unique Types: ${comp.tool_only.content_types.join(', ') || 'None'}</li>
+                            <li>Unique Keywords: ${comp.tool_only.keywords.join(', ') || 'None'}</li>
+                        </ul>
+                    </div>
+                </div>
+            `;
+
+            // Difference (Union - Intersection)
+            document.getElementById('differenceContent').innerHTML = `
+                <div class="comparison-grid">
+                    <div class="comparison-card">
+                        <h4>Symmetric Difference (∪ - ∩)</h4>
+                        <p style="color: #888; margin-bottom: 10px;">Elements found by one parser but not both</p>
+                        <ul>
+                            <li>Unique Types: ${comp.symmetric_difference.unique_to_either.join(', ') || 'None'}</li>
+                            <li>Unique Keywords: ${comp.symmetric_difference.unique_keywords.join(', ') || 'None'}</li>
+                        </ul>
+                    </div>
+                    <div class="comparison-card">
+                        <h4>Union (All Elements)</h4>
+                        <ul>
+                            <li>All Types: ${comp.union.all_content_types.join(', ')}</li>
+                            <li>All Keywords: ${comp.union.all_keywords.slice(0, 10).join(', ')}${comp.union.all_keywords.length > 10 ? '...' : ''}</li>
+                        </ul>
+                    </div>
+                </div>
+            `;
+
+            // JSON views
+            document.getElementById('vlmJson').innerHTML = syntaxHighlight(JSON.stringify(data.vlm.result, null, 2));
+            document.getElementById('toolJson').innerHTML = syntaxHighlight(JSON.stringify(data.tool.result, null, 2));
+        }
+
+        // ============================================================
+        // UI Controls
+        // ============================================================
+
+        // Toggle layer visibility (VLM or Tool boxes)
+        function toggleLayer(type) {
+            if (type === 'vlm') {
+                showVLM = !showVLM;
+                document.querySelector('.toggle-btn.vlm').classList.toggle('active', showVLM);
+            } else {
+                showTool = !showTool;
+                document.querySelector('.toggle-btn.tool').classList.toggle('active', showTool);
+            }
+
+            if (currentData) {
+                renderBboxes(currentData);
+            }
+        }
+
+        // Show comparison tab
+        function showComparison(tab) {
+            document.querySelectorAll('.comparison-tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.comparison-content').forEach(c => c.classList.remove('active'));
+
+            event.target.classList.add('active');
+            document.getElementById(`comparison-${tab}`).classList.add('active');
+        }
+
+        // ============================================================
+        // Highlight & Selection (Hover and Click Interactions)
+        // ============================================================
+
+        // Highlight bbox on hover
+        function highlightElement(type, index) {
+            const bbox = document.getElementById(`bbox-${type}-${index}`);
+            if (bbox) {
+                bbox.style.fill = type === 'vlm' ? 'rgba(233, 69, 96, 0.4)' : 'rgba(74, 222, 128, 0.4)';
+                bbox.style.strokeWidth = '3';
+            }
+        }
+
+        function unhighlightElement(type, index) {
+            const bbox = document.getElementById(`bbox-${type}-${index}`);
+            if (bbox) {
+                bbox.style.fill = type === 'vlm' ? 'rgba(233, 69, 96, 0.1)' : 'rgba(74, 222, 128, 0.1)';
+                bbox.style.strokeWidth = '2';
+            }
+        }
+
+        function highlightBbox(type, index) {
+            highlightElement(type, index);
+            const elem = document.getElementById(`elem-${type}-${index}`);
+            if (elem) elem.classList.add('highlighted');
+        }
+
+        function unhighlightBbox(type, index) {
+            unhighlightElement(type, index);
+            const elem = document.getElementById(`elem-${type}-${index}`);
+            if (elem) elem.classList.remove('highlighted');
+        }
+
+        // Track selected element
+        let selectedType = null;
+        let selectedIndex = null;
+
+        // Select element on click - highlights and scrolls to sidebar item
+        function selectElement(type, index) {
+            // Clear previous selection
+            if (selectedType !== null && selectedIndex !== null) {
+                const prevBbox = document.getElementById(`bbox-${selectedType}-${selectedIndex}`);
+                const prevElem = document.getElementById(`elem-${selectedType}-${selectedIndex}`);
+                if (prevBbox) {
+                    prevBbox.classList.remove('selected');
+                    prevBbox.style.fill = selectedType === 'vlm' ? 'rgba(233, 69, 96, 0.1)' : 'rgba(74, 222, 128, 0.1)';
+                    prevBbox.style.strokeWidth = '2';
+                }
+                if (prevElem) {
+                    prevElem.classList.remove('selected');
+                }
+            }
+
+            // Set new selection
+            selectedType = type;
+            selectedIndex = index;
+
+            // Highlight the bbox
+            const bbox = document.getElementById(`bbox-${type}-${index}`);
+            if (bbox) {
+                bbox.classList.add('selected');
+                bbox.style.fill = type === 'vlm' ? 'rgba(233, 69, 96, 0.5)' : 'rgba(74, 222, 128, 0.5)';
+                bbox.style.strokeWidth = '4';
+            }
+
+            // Highlight and scroll to sidebar element
+            const elem = document.getElementById(`elem-${type}-${index}`);
+            if (elem) {
+                elem.classList.add('selected');
+                // Scroll into view with smooth animation
+                elem.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        }
+
+        // Clear selection when clicking elsewhere
+        function clearSelection() {
+            if (selectedType !== null && selectedIndex !== null) {
+                selectElement(selectedType, selectedIndex); // Toggle off
+                selectedType = null;
+                selectedIndex = null;
+            }
+        }
+
+        // ============================================================
+        // Utility Functions
+        // ============================================================
+
+        // Escape HTML special characters to prevent XSS
+        function escapeHtml(text) {
+            if (!text) return '';
+            return text.replace(/&/g, '&amp;')
+                       .replace(/</g, '&lt;')
+                       .replace(/>/g, '&gt;')
+                       .replace(/"/g, '&quot;');
+        }
+
+        function syntaxHighlight(json) {
+            return json.replace(/(".*?"(?=:))/g, '<span class="json-key">$1</span>')
+                       .replace(/: (".*?")/g, ': <span class="json-string">$1</span>')
+                       .replace(/: (\d+)/g, ': <span class="json-number">$1</span>');
+        }
+
+        // ============================================================
+        // Event Listeners & Keyboard Shortcuts
+        // ============================================================
+
+        // PDF select dropdown -> update text input
+        document.getElementById('pdfSelect').addEventListener('change', function() {
+            document.getElementById('pdfPath').value = this.value;
+        });
+
+        // Keyboard navigation for page control
+        document.addEventListener('keydown', function(e) {
+            // Only if we have a PDF loaded and not focused on input
+            if (!currentPdfPath || e.target.tagName === 'INPUT') return;
+
+            if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+                e.preventDefault();
+                changePage(-1);
+            } else if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+                e.preventDefault();
+                changePage(1);
+            } else if (e.key === 'Home') {
+                e.preventDefault();
+                if (currentPage !== 0) parsePDF(0);
+            } else if (e.key === 'End') {
+                e.preventDefault();
+                if (currentPage !== totalPages - 1) parsePDF(totalPages - 1);
+            }
+        });
+
+        // Page input Enter key handler
+        document.getElementById('pageInput').addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                jumpToPage();
+            }
+        });
+
+        // Initialize
+        loadPDFList();
+    </script>
+</body>
+</html>

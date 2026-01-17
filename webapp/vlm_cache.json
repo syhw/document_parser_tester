@@ -1,0 +1,79 @@
+{
+  "vlm_doc_test/tests/fixtures/documents/academic_paper/sample1.pdf": {
+    "page_0": {
+      "title": "CWM: An Open-Weights LLM for Research on Code Generation with World Models",
+      "authors": ["Meta FAIR CodeGen Team"],
+      "elements": [
+        {
+          "id": "vlm_0",
+          "type": "heading",
+          "content": "CWM: An Open-Weights LLM for Research on Code Generation with World Models",
+          "bbox_percent": {"x": 14, "y": 8, "width": 82, "height": 3.5}
+        },
+        {
+          "id": "vlm_1",
+          "type": "author_block",
+          "content": "Meta FAIR CodeGen Team",
+          "bbox_percent": {"x": 14, "y": 12, "width": 30, "height": 1.5}
+        },
+        {
+          "id": "vlm_2",
+          "type": "abstract",
+          "content": "We release Code World Model (CWM), a 32-billion-parameter open-weights LLM, to advance research on code generation with world models...",
+          "bbox_percent": {"x": 14, "y": 15, "width": 85, "height": 25}
+        },
+        {
+          "id": "vlm_3",
+          "type": "paragraph",
+          "content": "Date: September 29, 2025",
+          "bbox_percent": {"x": 14, "y": 41, "width": 25, "height": 1.5}
+        },
+        {
+          "id": "vlm_4",
+          "type": "paragraph",
+          "content": "Inference Code: github.com/facebookresearch/cwm",
+          "bbox_percent": {"x": 14, "y": 43, "width": 48, "height": 1.5}
+        },
+        {
+          "id": "vlm_5",
+          "type": "paragraph",
+          "content": "Model Weights: ai.meta.com/resources/models-and-libraries/cwm-downloads",
+          "bbox_percent": {"x": 14, "y": 45, "width": 65, "height": 3.5}
+        },
+        {
+          "id": "vlm_6",
+          "type": "heading",
+          "content": "1 Introduction",
+          "bbox_percent": {"x": 11, "y": 53, "width": 20, "height": 2}
+        },
+        {
+          "id": "vlm_7",
+          "type": "paragraph",
+          "content": "Software development is one of the domains where Large Language Models (LLMs) have already had a significant real-world impact...",
+          "bbox_percent": {"x": 11, "y": 56, "width": 87, "height": 10}
+        },
+        {
+          "id": "vlm_8",
+          "type": "paragraph",
+          "content": "We believe that advancing code generation with LLMs may require new training and modeling paradigms...",
+          "bbox_percent": {"x": 11, "y": 67, "width": 87, "height": 10}
+        },
+        {
+          "id": "vlm_9",
+          "type": "paragraph",
+          "content": "We release Code World Model (CWM), a new LLM for code generation and reasoning that has been trained on large amounts of code world modeling data...",
+          "bbox_percent": {"x": 11, "y": 78, "width": 87, "height": 8}
+        },
+        {
+          "id": "vlm_10",
+          "type": "paragraph",
+          "content": "For the Python execution data, actions are Python statements and observations contain the contents of the...",
+          "bbox_percent": {"x": 11, "y": 87, "width": 87, "height": 4}
+        }
+      ],
+      "abstract": "We release Code World Model (CWM), a 32-billion-parameter open-weights LLM, to advance research on code generation with world models...",
+      "sections": ["Introduction"],
+      "keywords": ["LLM", "Code Generation", "World Models", "Python", "Docker", "Open-Weights"]
+    }
+  }
+}
