@@ -99,7 +99,8 @@ class PDFPipelineComparison:
             import fitz
             with fitz.open(pdf_path) as doc:
                 page_count = len(doc)
-        except:
+        except (FileNotFoundError, RuntimeError, ValueError) as e:
+            # PDF may be corrupted, password-protected, or inaccessible
             pass
 
         # Run each pipeline

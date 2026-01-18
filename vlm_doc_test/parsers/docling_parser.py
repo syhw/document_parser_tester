@@ -12,6 +12,7 @@ from datetime import datetime
 
 from ..schemas.schema_simple import SimpleDocument, DocumentSource, DocumentMetadata, ContentElement, Table, Figure
 from ..schemas.base import DocumentFormat, DocumentCategory, BoundingBox
+from ..utils.markdown_utils import parse_markdown_to_content
 
 
 @dataclass
@@ -188,59 +189,35 @@ class DoclingParser:
         try:
             if hasattr(docling_doc, 'title'):
                 metadata.title = docling_doc.title
-        except:
+        except (AttributeError, TypeError, ValueError):
+            # Document may not have accessible title attribute
             pass
 
         return metadata
 
     def _extract_content(self, docling_doc) -> List[ContentElement]:
         """Extract content elements from Docling document."""
-        content = []
-
-        # Docling provides structured content
-        # Try to extract text blocks
+        # Docling provides structured content via markdown export
         try:
             text_content = docling_doc.export_to_markdown()
-            lines = text_content.split('\n')
-
-            elem_id = 0
-            for line in lines:
-                line = line.strip()
-                if not line:
-                    continue
-
-                elem_id += 1
-
-                # Detect heading
-                if line.startswith('#'):
-                    level = len(line) - len(line.lstrip('#'))
-                    text = line.lstrip('#').strip()
-                    content.append(ContentElement(
-                        id=f"elem_{elem_id}",
-                        type="heading",
-                        content=text,
-                        level=level,
-                    ))
-                else:
-                    # Regular paragraph
-                    content.append(ContentElement(
-                        id=f"elem_{elem_id}",
-                        type="paragraph",
-                        content=line,
-                    ))
-        except Exception as e:
+            # Use shared markdown parser (merge_paragraphs=False for line-by-line)
+            return parse_markdown_to_content(
+                text_content,
+                id_prefix="elem",
+                merge_paragraphs=False,
+            )
+        except Exception:
             # Fallback to simple text extraction
             try:
                 text = str(docling_doc)
-                content.append(ContentElement(
+                return [ContentElement(
                     id="elem_1",
                     type="paragraph",
                     content=text,
-                ))
-            except:
-                pass
-
-        return content
+                )]
+            except (TypeError, ValueError, AttributeError):
+                # Could not convert document to string
+                return []
 
     def _extract_tables(self, docling_doc) -> List[Table]:
         """Extract tables from Docling document."""
@@ -258,9 +235,11 @@ class DoclingParser:
                             rows=[],  # Would need proper conversion
                         )
                         tables.append(table)
-                    except:
+                    except (TypeError, ValueError, AttributeError):
+                        # Skip malformed table objects
                         continue
-        except:
+        except (AttributeError, TypeError):
+            # Document may not have tables attribute or it's not iterable
             pass
 
         return tables
@@ -283,7 +262,8 @@ class DoclingParser:
                         caption=caption,
                     )
                     figures.append(figure)
-        except:
+        except (AttributeError, TypeError):
+            # Document may not have pictures attribute or it's not iterable
             pass
 
         return figures
