@@ -167,7 +167,7 @@ class TestToolVsVLMComparison:
         with pytest.raises(NotImplementedError) as exc_info:
             parser.parse(image_path, category=DocumentCategory.ACADEMIC_PAPER)
 
-        assert "MCP integration" in str(exc_info.value)
+        assert "MCP" in str(exc_info.value)
 
     def test_vlm_parser_missing_image(self):
         """Test that VLM parser handles missing images."""

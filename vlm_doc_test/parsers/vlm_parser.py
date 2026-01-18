@@ -165,26 +165,25 @@ This is TECHNICAL DOCUMENTATION. Focus on:
 
         Uses the image_analysis tool from the MCP server.
 
-        Note: This method is designed to be called from within Claude Code
-        where MCP tools are available. In standalone Python, this will
-        raise NotImplementedError.
+        Note:
+            This method is designed to be called from within Claude Code
+            where MCP tools are available. In standalone Python, this raises
+            NotImplementedError.
+
+        Args:
+            image_path: Path to the image file
+            prompt: Extraction prompt for the VLM
+
+        Returns:
+            JSON string with extracted document structure
+
+        Raises:
+            NotImplementedError: When called outside Claude Code environment
         """
-        # In Claude Code, MCP tools would be available and this would work
-        # The tool name format is: mcp__<server-name>__<tool-name>
-        # For Z.AI: mcp__zai_mcp_server__image_analysis
-
-        # This is a placeholder for MCP tool invocation
-        # In Claude Code environment, you would call the MCP tool directly
-        # through the tool invocation mechanism
-
         raise NotImplementedError(
-            "VLM MCP integration requires running within Claude Code.\n"
-            "To use this parser:\n"
-            "1. Ensure Z.AI MCP server is configured (zai_glmV_mcp.json)\n"
-            "2. Call from Claude Code where MCP tools are available\n"
-            "3. The tool 'mcp__zai_mcp_server__image_analysis' will be invoked\n"
-            f"   with image: {image_path}\n"
-            f"   and prompt: {prompt[:100]}..."
+            "VLM parsing requires Claude Code MCP environment.\n"
+            "Use the mcp__zai_mcp_server__analyze_image tool directly,\n"
+            "or use AdaptivePDFParser which handles VLM escalation."
         )
 
     def _parse_vlm_response(
@@ -272,30 +271,12 @@ class VLMParserWithMCP(VLMParser):
     """
     VLM Parser that uses MCP tools when available.
 
-    This version checks for available MCP tools and uses them if present.
-    Falls back to NotImplementedError if MCP tools aren't available.
+    Note:
+        This is an alias for VLMParser. Both require Claude Code MCP
+        environment to function. Use AdaptivePDFParser for automatic
+        VLM escalation when needed.
     """
-
-    def _call_vlm_mcp(self, image_path: Path, prompt: str) -> str:
-        """
-        Call Z.AI Vision MCP Server using MCP tools.
-
-        Checks for mcp__zai_mcp_server__image_analysis tool.
-        """
-        # Check if MCP tool is available
-        # In Claude Code, MCP tools are available as mcp__<server>__<tool>
-        tool_name = "mcp__zai_mcp_server__image_analysis"
-
-        # For now, this is a placeholder
-        # The actual implementation would use the MCP protocol
-        # which is available in Claude Code but not in standalone Python
-
-        raise NotImplementedError(
-            f"MCP tool '{tool_name}' would be called here with:\n"
-            f"  image: {image_path}\n"
-            f"  prompt: {prompt[:100]}...\n\n"
-            "This requires MCP integration which is available in Claude Code."
-        )
+    pass  # Inherits _call_vlm_mcp from VLMParser
 
 
 def create_vlm_parser(use_mcp: bool = True) -> VLMParser:
