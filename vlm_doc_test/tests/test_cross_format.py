@@ -58,7 +58,7 @@ class TestCrossFormatConsistency:
     """Test cross-format consistency for same content."""
 
     @pytest.mark.parametrize("category,formats,description", CROSS_FORMAT_TESTS)
-    @pytest.mark.xfail(reason="Fixtures are different documents - need matching HTML for arXiv paper")
+    @pytest.mark.xfail(reason="Fixtures are different documents (real arXiv vs synthetic)")
     def test_same_content_different_formats(
         self,
         category: str,
@@ -133,7 +133,6 @@ class TestCrossFormatConsistency:
                 )
 
     @pytest.mark.parametrize("category,formats,description", CROSS_FORMAT_TESTS)
-    @pytest.mark.xfail(reason="Fixtures are different documents")
     def test_metadata_consistency_across_formats(
         self,
         category: str,

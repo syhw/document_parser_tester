@@ -10,6 +10,16 @@ from pathlib import Path
 from datetime import datetime
 import pymupdf as fitz
 
+
+def pytest_configure(config):
+    """Register custom pytest markers."""
+    config.addinivalue_line(
+        "markers", "slow: marks tests as slow (deselect with '-m \"not slow\"')"
+    )
+    config.addinivalue_line(
+        "markers", "integration: marks tests as integration tests requiring external services"
+    )
+
 from ..schemas.schema_simple import (
     SimpleDocument,
     DocumentSource,
