@@ -12,6 +12,7 @@ from datetime import datetime
 
 from ..schemas.schema_simple import SimpleDocument, DocumentSource, DocumentMetadata, ContentElement
 from ..schemas.base import DocumentFormat, DocumentCategory
+from ..utils.markdown_utils import parse_markdown_to_content
 
 
 @dataclass
@@ -185,64 +186,7 @@ class MarkerParser:
         Returns:
             List of content elements
         """
-        content = []
-        lines = markdown.split('\n')
-
-        element_id = 0
-        current_paragraph = []
-
-        for line in lines:
-            line = line.strip()
-
-            if not line:
-                # End of paragraph
-                if current_paragraph:
-                    element_id += 1
-                    content.append(ContentElement(
-                        id=f"elem_{element_id}",
-                        type="paragraph",
-                        content=" ".join(current_paragraph),
-                    ))
-                    current_paragraph = []
-                continue
-
-            # Check for headers
-            if line.startswith('#'):
-                # Save any pending paragraph
-                if current_paragraph:
-                    element_id += 1
-                    content.append(ContentElement(
-                        id=f"elem_{element_id}",
-                        type="paragraph",
-                        content=" ".join(current_paragraph),
-                    ))
-                    current_paragraph = []
-
-                # Determine heading level
-                level = len(line) - len(line.lstrip('#'))
-                heading_text = line.lstrip('#').strip()
-
-                element_id += 1
-                content.append(ContentElement(
-                    id=f"elem_{element_id}",
-                    type="heading",
-                    content=heading_text,
-                    level=level,
-                ))
-            else:
-                # Regular text - accumulate into paragraph
-                current_paragraph.append(line)
-
-        # Add final paragraph if exists
-        if current_paragraph:
-            element_id += 1
-            content.append(ContentElement(
-                id=f"elem_{element_id}",
-                type="paragraph",
-                content=" ".join(current_paragraph),
-            ))
-
-        return content
+        return parse_markdown_to_content(markdown, id_prefix="elem", merge_paragraphs=True)
 
     def batch_convert(
         self,
