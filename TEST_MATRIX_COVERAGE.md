@@ -276,7 +276,7 @@ Expected (from TESTING.md lines 349-378):
 
 #### 1. **Implement Parametrized Matrix Tests** (High Priority)
 
-Create `test_matrix.py`:
+Create `coded_test_category_matrix.py`:
 ```python
 import pytest
 
@@ -311,9 +311,10 @@ def test_format_category_parsing(format, category, priority):
     assert result.passed, f"Category validation failed: {result.errors}"
 ```
 
-#### 2. **Add Category Validators** (High Priority)
+#### 2. **Add Category Validators + Regression Tests** (High Priority)
 
-Create `vlm_doc_test/validation/category_validators.py`:
+Extend `vlm_doc_test/validation/category_validators.py` and exercise the rules in
+`coded_test_category_validators.py`:
 ```python
 class AcademicPaperValidator:
     def validate(self, document):
@@ -335,6 +336,18 @@ class BlogPostValidator:
         assert document.metadata.publish_date is not None
         assert len(document.metadata.tags) > 0
         # ...
+```
+```python
+# coded_test_category_validators.py
+@pytest.mark.parametrize("category,fixture", [
+    ("academic_paper", "fixtures/academic_paper/sample1.pdf"),
+    ("blog_post", "fixtures/blog_post/sample1.html"),
+    ("technical_docs", "fixtures/technical_docs/sample1.html"),
+])
+def test_category_requirements(category, fixture):
+    document = parse_fixture(fixture, category)
+    result = get_category_validator(category).validate(document)
+    assert result.passed, result.issues
 ```
 
 #### 3. **Create Test Fixtures** (High Priority)
@@ -359,6 +372,7 @@ tests/fixtures/
 
 #### 4. **Add Cross-Format Tests** (Medium Priority)
 
+Create `coded_test_cross_format_equivalence.py`:
 ```python
 def test_academic_paper_cross_format():
     """Same paper in PDF and HTML should produce equivalent output."""
@@ -374,6 +388,7 @@ def test_academic_paper_cross_format():
 
 #### 5. **Add Ground Truth Testing** (Lower Priority, High Effort)
 
+Create `coded_test_ground_truth_alignment.py`:
 ```python
 def test_against_ground_truth():
     """Compare parser output to manually annotated ground truth."""
@@ -390,6 +405,23 @@ def test_against_ground_truth():
 
     assert precision > 0.90
     assert recall > 0.85
+```
+
+#### 6. **Exercise Advanced Formats** (Medium Priority)
+
+Create `coded_test_advanced_formats.py` to smoke-test the Docling and Marker
+parsers on DOCX/PPTX/Jupyter fixtures:
+```python
+@pytest.mark.parametrize("path,category", [
+    ("fixtures/technical_docs/sample_deck.pptx", "presentation"),
+    ("fixtures/reports/sample1.docx", "report"),
+    ("fixtures/tutorials/sample1.ipynb", "tutorial"),
+])
+def test_non_pdf_formats_roundtrip(path, category):
+    doc = DoclingParser().parse(path, category=category)
+    result = get_category_validator(category).validate(doc)
+    assert result.passed
+    assert len(doc.content) > 0
 ```
 
 ## Conclusion
